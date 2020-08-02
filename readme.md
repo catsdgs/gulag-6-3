@@ -29,7 +29,7 @@ npm start
 1. Install NodeJS and NPM from [here](https://nodejs.org/en/download/).
 2. Download this repo as a zip archive from [here](https://github.com/titaniumnetwork-dev/powermouse/archive/master.zip).
 3. Extract the zip archive to its own directory (try the desktop).
-4. Open the terminal. Press Command (superkey/windows key) + Space. This should open spotlight. Type "terminal", and hit enter.
+4. Open the terminal. Press Command (superkey/windows key) + Space. This should open spotlight. Type "terminal", and hit enter. 
 5. A white box will appear. Wait 1-10 seconds until there is a dollar sign ($) at the end of the last line.
 6. Type in `cd `, then either manually type the absolute location of the install directory, or simply drag the folder into the cmd. Then hit enter. Example:
 ```
