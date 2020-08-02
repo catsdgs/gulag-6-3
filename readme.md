@@ -72,6 +72,13 @@ screen npm start
 ```
 Then press CTRL + A + D. You are now safe to exit the ssh connection.
 ## Configuration:
+### Running under a VPN
+1. open config.json
+2. under proxy look for vpn, set enabled under vpn to true
+3. set socks5 under vpn to a socks5 proxy or leave it blank, many can be found at https://api.proxyscrape.com/?request=getproxies&proxytype=socks5&timeout=10000&country=US
+4. save your config.json after modifying then start the app, it should be running under a vpn
+
+
 ### Enabling SSL
 1. Point a domain name at your VPS's IP address, using an A record.
 2. Install certbot. Follow prompts.
