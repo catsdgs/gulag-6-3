@@ -1,0 +1,23 @@
+{
+	"webserver": {
+		"listenip": "0.0.0.0",
+		"port": 7080,
+		"ssl": true
+	},
+	"proxy": {
+		"private_ips": false,
+		"session_timeout": 3600000,
+		"vpn": {
+			"enabled": false,
+			"socks5": "104.238.97.215:16601"
+		}
+	},
+	"workers": {
+		"count": 1,
+		"max_errors": 12
+	},
+	"cache": {
+		"enabled": false,
+		"dir": "cache"
+	}
+}
