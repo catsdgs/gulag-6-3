@@ -1,6 +1,6 @@
 # Powermouse
 Powerful http(s) web proxy compatible with a variety of websites
-#### Maintained by Divide#1335 on Discord
+#### Maintained by [removed for now] on Discord
 
 <a href="https://heroku.com/deploy?template=https://github.com/vibedivde/powermouse/tree/master" title="Deploy to Heroku"><img alt="Deploy to Heroku" src="https://sys32.dev/assets/src/media/heroku.svg" width="140" height="30"><img></a>
 &nbsp;
