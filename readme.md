@@ -2,7 +2,7 @@
 Powerful http(s) web proxy compatible with a variety of websites
 #### Maintained by Divide#1335 on Discord
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/titaniumnetwork-dev/powermouse/tree/master) [![Deploy to Azure](https://azuredeploy.net/deploybutton.svg)](https://azuredeploy.net/repository=https://github.com/titaniumnetwork-dev/powermouse) [![Run on Repl.it](https://repl.it/badge/github/titaniumnetwork-dev/powermouse)](https://repl.it/github/titaniumnetwork-dev/powermouse)
+[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/vibedivde/powermouse/tree/master) [![Deploy to Azure](https://azuredeploy.net/deploybutton.svg)](https://azuredeploy.net/repository=https://github.com/vibedivde/powermouse) [![Run on Repl.it](https://repl.it/badge/github/titaniumnetwork-dev/powermouse)](https://repl.it/github/vibedivde/powermouse)
 
 ## Installation:
 ### Local Installation (Windows)
