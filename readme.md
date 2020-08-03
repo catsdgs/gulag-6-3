@@ -2,7 +2,12 @@
 Powerful http(s) web proxy compatible with a variety of websites
 #### Maintained by Divide#1335 on Discord
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/vibedivde/powermouse/tree/master) [![Deploy to Azure](https://azuredeploy.net/deploybutton.svg)](https://azuredeploy.net/repository=https://github.com/vibedivde/powermouse) [![Run on Repl.it](https://repl.it/badge/github/titaniumnetwork-dev/powermouse)](https://repl.it/github/vibedivde/powermouse)
+<a href="https://heroku.com/deploy?template=https://github.com/vibedivde/powermouse/tree/master" title="Deploy to Heroku"><img alt="Deploy to Heroku" src="https://sys32.dev/assets/src/media/heroku.svg" width="140" height="30"><img></a>
+&nbsp;
+<a href="https://azuredeploy.net/repository=https://github.com/vibedivde/powermouse" title="Deploy to Azure"><img alt="Deploy to Azure" src="https://sys32.dev/assets/src/media/azure.svg" width="140" height="30"><img></a>
+&nbsp;
+<a href="https://repl.it/github/vibedivde/powermouse" title="Deploy to Repl.it"><img alt="Deploy to Repl.it" src="https://sys32.dev/assets/src/media/replit.svg" width="140" height="30"><img></a>
+&nbsp;
 
 ## Installation:
 ### Local Installation (Windows)
