@@ -6,7 +6,7 @@ Powerful http(s) web proxy compatible with a variety of websites
 &nbsp;
 <a href="https://azuredeploy.net/repository=https://github.com/vibedivde/powermouse" title="Deploy to Azure"><img alt="Deploy to Azure" src="https://sys32.dev/assets/src/media/azure.svg" width="140" height="30"><img></a>
 &nbsp;
-<a href="https://repl.it/github/vibedivde/powermouse" title="Deploy to Repl.it"><img alt="Deploy to Repl.it" src="https://sys32.dev/assets/src/media/replit.svg" width="140" height="30"><img></a>
+<a href="https://repl.it/github/vibedivde/powermouse" title="Run on Repl.it"><img alt="Run on Repl.it" src="https://sys32.dev/assets/src/media/replit.svg" width="140" height="30"><img></a>
 &nbsp;
 
 ## Installation:
