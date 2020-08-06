@@ -187,15 +187,30 @@ XMLHttpRequest.prototype.open = function() {
 	_xmlopen.apply(this, args);
 }
 
-window.Element = new Proxy(window.Element, {
-	set: (obj, prop, value) => {
-		console.log('SET:', obj, prop, value);
+var _HTMLElement = HTMLElement
+
+class __HTMLElement {
+	constructor(){
+		var args = arguments,
+			output = _HTMLElement.apply(args);
 		
-		obj[prop] = value;
+		output = new Proxy(output, {
+			set: (obj, prop, value) => {
+				console.log('SET:', obj, prop, value);
+
+				obj[prop] = value;
+
+				return true;
+			}
+		});
 		
-		return true;
+		return output
+		
 	}
-});
+}
+
+HTMLElement = __HTMLElement
+
 var _setAttribute = window.Element.prototype.setAttribute
 
 window.Element.prototype.setAttribute = function(){

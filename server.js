@@ -101,21 +101,15 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 		var msg=`Listening on ${config.webserver.ssl ? 'https' : 'http'}://${config.webserver.listenip}:${workerData.port}${tt}`;
 		threads.parentPort.postMessage({type:'log', id: threads.threadId, value: msg});
 	}),
+	btoa=(str,encoding)=>{
+		return Buffer.from(str,'utf8').toString(( typeof encoding == 'undefined' ? 'base64' : encoding))
+	},
+	atob=(str,encoding)=>{
+		return Buffer.from(str, ( typeof encoding == 'undefined' ? 'base64' : encoding)).toString('utf8')
+	},
 	proxyAgent = null;
 
 if(config.proxy.vpn.enabled)proxyAgent = new socksProxyAgent('socks5://' + config.proxy.vpn.socks5);
-
-global.btoa=((str,encoding)=>{
-	let enc='base64';
-	if(typeof encoding!='undefined')enc=encoding;
-	return Buffer.from(str,'utf8').toString(enc)
-});
-
-global.atob=((str,encoding)=>{
-	let enc='base64';
-	if(typeof encoding!='undefined')enc=encoding;
-	return Buffer.from(str,enc).toString('utf8')
-});
 
 global.sessions = {} // temp value!
 
@@ -168,12 +162,7 @@ listen=config.webserver.listenip;
 if(config.webserver.ssl==true)server=https.createServer(ssl,app).listen(workerData.port, config.webserver.listenip,ready);
 else server=http.createServer(app).listen(workerData.port, config.webserver.listenip,ready);
 
-var wss=new websocket.Server({
-		server: server,
-		// path: '/ws/'
-	}),conns=0;
-
-require('./ws.js')(wss, conns);
+require('./ws.js')(server);
 
 app.use((req,res,next)=>{
 	// hacky implementation of session stuff
@@ -183,8 +172,6 @@ app.use((req,res,next)=>{
 	
 	var sid = req.cookies['connect.sid'],
 		cookie = { maxAge: 900000, httpOnly: true, domain: req.fullURL.host.match(/\..{2,3}(?:\.?.{2,3}).*?$/gim), secure: true, sameSite: 'Lax' };
-	
-	// res.setHeader('Content-Security-Policy',`default-src 'self' *.${req.fullURL.hostname}`);
 	
 	if(sid == undefined || sid.length <= 7){
 		while(true){
@@ -284,7 +271,8 @@ app.post('/alias',(req,res,next)=>{
 	try{
 		url=new URL(url).origin
 	}catch(err){
-		res.status(400);res.contentType('text/html');
+		res.status(400);
+		res.contentType('text/html');
 		return res.send(msgPage.replace('%TITLE%',err.code).replace('%REASON%',err.message));
 	}
 	
@@ -299,13 +287,16 @@ app.post('/alias',(req,res,next)=>{
 	
 	// URL errors
 	if(config.directIPs==false && url.match(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi)){
-		res.status(400);res.contentType('text/html');
+		res.status(400);
+		res.contentType('text/html');
 		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','Aliases pointing to an IP address are not permitted'));
 	}else if(typeof url != 'string'){
-		res.status(400);res.contentType('text/html');
+		res.status(400);
+		res.contentType('text/html');
 		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','The URL specified is not a valid string'));
 	}else if(!url.match(workerData.tldRegex)){
-		res.status(400);res.contentType('text/html');
+		res.status(400);
+		res.contentType('text/html');
 		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','The URL specified was not a valid URL'));
 	}
 	
@@ -334,12 +325,18 @@ app.post('/alias',(req,res,next)=>{
 
 app.use((req,res,next)=>{
 	if( !req.url.startsWith('/prox') ||  (req.method=='POST' && !req.body.url) || (req.method=='GET' && !req.query.url) )return next();
-	var url;
-	if(req.method=='GET')url=req.query.url
-	else if(req.method=='POST')url=req.body.url;
-	try{url=new URL(addproto(url))}
-	catch{return next()} // dont parse bad urls
+	
+	var url = addproto((req.method == 'GET' ? req.query.url : req.body.url));
+	
+	try{
+		url=new URL(addproto(url))
+	}catch{
+		return next() // dont parse bad urls
+	}
+	
 	res.redirect('/'+url.href);
+	
+	url = null
 });
 
 app.use((req,res,next)=>{
@@ -352,40 +349,8 @@ app.use((req,res,next)=>{
 	req.session.rpm = url;
 	
 	res.redirect('/ses/');
-});
-
-app.use((req, res, next)=>{
-	if(req.method != 'GET' || config.cache.enabled != true)return next();
 	
-	if(config.cache.enabled && !fs.existsSync(config.cache.dir) ){
-		fs.mkdirSync(config.cache.dir);
-	}
-	
-	var listing = fs.readdirSync(config.cache.dir),
-		fileFound = false;
-	
-	listing.forEach(folder => {
-		if(fileFound)return;
-		
-		var filePath = config.cache.dir + '/' + folder.replace(/\//gi, '=-') + '/' + encodeURI(btoa(req.fullURL.href).replace(/\//gi, '=-') );
-		
-		if(fs.existsSync( filePath )){
-			var file = fs.readFileSync(filePath),
-				ct = atob(folder.replace(/\//gi, '=-'));
-			
-			fileFound = true
-			
-			res.contentType(ct)
-			
-			// console.log('serving up cached file:', ct, req.fullURL.pathname)
-			
-			return res.send(file);
-		}
-	});
-	
-	if(fileFound == false){
-		return next();
-	}
+	url = null
 });
 
 app.use(async (req,res,next)=>{
@@ -398,24 +363,35 @@ app.use(async (req,res,next)=>{
 		return res.send(msgPage.replace('%TITLE%','Session data cleared').replace('%REASON%', 'All was done with success' ));
 	}
 	
-	var url,
-		response,
-		ct = null,
-		sendData,
-		fetch_options = {
-			method: req.method,
-			redirect: 'follow',
-			agent: (_parsedURL)=>{
-				if(config.proxy.vpn.enabled){
-					return proxyAgent
-				}else if(_parsedURL.protocol == 'http:'){
-					return httpAgent
-				}else{
-					return httpsAgent
-				}
+	var data = {
+			contentType: null,
+			sendData: null,
+			response: null,
+			fetch_headers: {},
+			fetch_options: {
+				method: req.method,
+				redirect: 'follow',
+				agent: (_parsedURL)=>{
+					if(config.proxy.vpn.enabled){
+						return proxyAgent
+					}else if(_parsedURL.protocol == 'http:'){
+						return httpAgent
+					}else{
+						return httpsAgent
+					}
+				},
+			},
+			clearVariables: ()=>{
+				Object.entries(data).forEach(e=>{
+					delete data[ e[0] ]
+				});
+				setTimeout(()=>{
+					res = null
+					req = null
+				}, 100);
 			},
 		},
-		fetch_headers = {};
+		url;
 	
 	if(req.fullURL.pathname=='/https://discordapp.com/api/v6/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login' }));
 	
@@ -484,8 +460,15 @@ app.use(async (req,res,next)=>{
 	*/
 	
 	if(!config.proxy.private_ips && url.host != '')await dns.lookup(url.host, (err, address, family) => {
-		if(err)return genMsg(req, res, 400, err.message)
-		else if(address.match(/^(?:192.168.|172.16.|10.0.|127.0)/gi))return genMsg(req, res, 403, 'please dont try to connect to private ips :(');
+		if(err){
+			genMsg(req, res, 400, err.message);
+			
+			return data.clearVariables();
+		}else if(address.match(/^(?:192.168.|172.16.|10.0.|127.0)/gi)){
+			genMsg(req, res, 403, 'please dont try to connect to private ips :(');
+			
+			return data.clearVariables();
+		}
 	});
 	
 	/* check if the url like https://google.com/directory
@@ -499,7 +482,7 @@ app.use(async (req,res,next)=>{
 	
 	// add the request body from a form or something if this was a post request
 	
-	if(req.method=='POST')fetch_options['body']=JSON.stringify(req.body);
+	if(req.method=='POST')data.fetch_options['body']=JSON.stringify(req.body);
 	
 	Object.entries(req.headers).forEach((e,i,a)=>{
 		var name=e[0].toLowerCase();
@@ -511,21 +494,21 @@ app.use(async (req,res,next)=>{
 		
 		// add the header to the array
 		
-		fetch_headers[name] = value;
+		data.fetch_headers[name] = value;
 	});
 	
-	fetch_headers['referer'] = url.href
+	data.fetch_headers['referer'] = url.href
 	
 	var cookieStr='';
 	Object.entries(req.cookies).forEach((e,i)=>{
 		cookieStr+=`${e[0]}=${e[1]};`;
 	});
 	
-	fetch_headers['cookie'] = cookieStr;
-	fetch_options['headers'] = fetch_headers;
+	data.fetch_headers['cookie'] = cookieStr;
+	data.fetch_options['headers'] = data.fetch_headers;
 	
-	response = await fetch(url, fetch_options).catch(err => {
-		response = null
+	data.response = await fetch(url, data.fetch_options).catch(err => {
+		data.response = null
 		
 		if(req.msgShown)return;
 		
@@ -549,10 +532,10 @@ app.use(async (req,res,next)=>{
 	
 	if(req.msgShown)return;
 	
-	if(req.session.rpmEnabled != true && response !=undefined && response.redirected == true){ // redirect has happened at least once
-		return res.redirect(307, '/'+response.url);
-	}else if(req.session.rpmEnabled == true && response.redirected == true){
-		var tmp = new URL(response.url),
+	if(req.session.rpmEnabled != true && data.response != undefined && data.response.redirected == true){ // redirect has happened at least once
+		return res.redirect(307, '/' + data.response.url);
+	}else if(req.session.rpmEnabled == true && data.response.redirected == true){
+		var tmp = new URL(data.response.url),
 			tmp2 = '/ses';
 		
 		// need to set a new url in the session of the origin has changed from a redirect..
@@ -566,42 +549,41 @@ app.use(async (req,res,next)=>{
 		return res.redirect(307, tmp2);
 	}
 	
-	if(typeof response == 'undefined' || typeof response.buffer != 'function')return; // error should have already been handled at this point so just return
+	if(typeof data.response == 'undefined' || typeof data.response.buffer != 'function')return; // error should have already been handled at this point so just return
 	
-	sendData=await response.buffer();
+	data.sendData = await data.response.buffer();
 	
-	response.headers.forEach((e,i,a)=>{
-		if(i=='content-type')ct=e; //safely set content-type
+	data.response.headers.forEach((e,i)=>{
+		if(i == 'content-type')data.contentType = e; //safely set content-type
 	});
 	
-	if(ct == null)ct=mime.getType(url.href.match(/\.(\w{2,4})/gi));
+	if(data.contentType == null)data.contentType = mime.getType(url.href.match(/\.(\w{2,4})/gi));
 	
-	if(ct==null || typeof ct=='undefined')ct='text/html'; // set to text/html as last ditch effort
+	if(data.contentType == null || typeof data.contentType == 'undefined')data.contentType = 'text/html'; // set to text/html as last ditch effort
 	
-	if(ct.startsWith('text/html') && response.status == 200 && typeof req.query['pm-origin'] == 'undefined')req.session.ref=url.href;
+	if(data.contentType.startsWith('text/html') && data.response.status == 200 && typeof req.query['pm-origin'] == 'undefined')req.session.ref=url.href;
 	
-	if(req.fullURL.href.match(/\.wasm$/gi))ct = 'application/wasm'
+	if(req.fullURL.href.match(/\.wasm$/gi))data.contentType = 'application/wasm'
 	
-	res.contentType(ct);
-	res.status(response.status);
+	res.contentType(data.contentType);
+	res.status(data.response.status);
 	
-	if(ct.startsWith('application/x-shockwave-flash') || ct.includes('font'))return res.send(sendData); // get straight to the font
+	if(data.contentType.startsWith('application/x-shockwave-flash') || data.contentType.includes('font'))return res.send(data.sendData); // get straight to the font
 	
-	if(ct.startsWith('image'))res.set('Cache-Control','max-age=31536000'); // big cache for images
+	if(data.contentType.startsWith('image'))res.set('Cache-Control','max-age=31536000'); // big cache for images
 	
-	if(ct.startsWith('text/') || ct.startsWith('application/' && req.no_proxy != true) ){
-		var sendData = (()=>{ var output = ''; sendData.toString('utf8').split('\n').forEach(e=> output += e + '\n'); return output })(), // convert buffer to string
-			regUrlOri=req.fullURL.origin.replace('.','\\.').replace('/','\\/'), // safe way to have url origin in regex
+	if(data.contentType.startsWith('text/') || data.contentType.startsWith('application/' && req.no_proxy != true) ){
+		data.sendData = (()=>{ var output = ''; data.sendData.toString('utf8').split('\n').forEach(e=> output += e + '\n'); return output })(); // convert buffer to string
+		
+		var regUrlOri=req.fullURL.origin.replace('.','\\.').replace('/','\\/'), // safe way to have url origin in regex
 			urlOri=url.origin.replace('.','\\.').replace('/','\\/'), // safe way to have url origin in regex
 			regexFullOrigin = req.fullURL.origin.replace('.','\\.').replace('/','\\/'),
 			urlDirectory = url.href.replace(/(.*?\/)[^\/]*?$/gi, '$1'); // https://google.com/bruh/ok.html => https://google.com/bruh/
 		
-		if(ct.startsWith('text/css'))sendData = htmlMinify.minify('<style>' + sendData + '</style>', {minifyCSS: true, }).replace(/(?:^<style>|<\/style>$)/gi,''); // cool trick to get htmlMinify to minify a css file and have it display correctly
+		if(data.contentType.startsWith('text/css'))data.sendData = htmlMinify.minify('<style>' + data.sendData + '</style>', {minifyCSS: true, }).replace(/(?:^<style>|<\/style>$)/gi,''); // cool trick to get htmlMinify to minify a css file and have it display correctly
 		
-		sendData = await sendData
+		data.sendData = await data.sendData
 		.replace(new RegExp('(:\s*?url\\((?:"|\')?)(?!data:|' + regexFullOrigin + ')([\\s\\S]*?)((?:"|\')?\\))', 'gi'), (match, p1, p2, p3, offset, string)=>{
-			var output = '';
-			
 			if(typeof req.session.ref != 'undefined'){
 				uorigin = new URL(req.session.ref).origin;
 			}else{
@@ -620,11 +602,11 @@ app.use(async (req,res,next)=>{
 		})
 		;
 		
-		if(url.hostname != 'www.youtube.com')sendData=sendData // run this on not youtube links
+		if(url.hostname != 'www.youtube.com')data.sendData = data.sendData // run this on not youtube links
 		.replace(new RegExp(workerData.ip, 'gi'), randomIP());
 		
-		if(ct.startsWith('text/html')){
-			sendData = sendData
+		if(data.contentType.startsWith('text/html')){
+			data.sendData = data.sendData
 			
 			// replace "//bing.com" => "https://bing.com"
 			.replace(/(?<!base )((?:target|href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))\/{2}/gi,'$1https://')
@@ -658,25 +640,25 @@ app.use(async (req,res,next)=>{
 			;
 			
 			if(!req.session.rpmEnabled){
-				sendData = sendData
+				data.sendData = data.sendData
 				.replace(/<\/head>/gi,'<script src="/pm-cgi/inject.js"></script></head>')
 				;
 			}
 			
-			if(!aliasMode && !req.session.rpmEnabled)sendData = sendData.replace(/<\/head>/gi,'<script src="/pm-cgi/windowURL.js"></script></head>')
+			if(!aliasMode && !req.session.rpmEnabled)data.sendData = data.sendData.replace(/<\/head>/gi,'<script src="/pm-cgi/windowURL.js"></script></head>')
 			
 			// replace reference to alias URL with alias
-			else if(aliasMode)sendData = sendData.replace(new RegExp(`("|')(${ req.fullURL.origin })?\/${shor}(.*?)("|')`,'gi'),'$1/alias/'+aliasSet+'/$2$3')
+			else if(aliasMode)data.sendData = data.sendData.replace(new RegExp(`("|')(${ req.fullURL.origin })?\/${shor}(.*?)("|')`,'gi'),'$1/alias/'+aliasSet+'/$2$3')
 			
 			// replace like the session url is equal to https://discord.com/ and replace all links to the session url with the /ses/
-			else if(req.session.rpmEnabled)sendData = sendData.replace(new RegExp(`("|')${ req.fullURL.origin }\\/${ req.session.rpm }(.*?)\\1`,'gi'),'$1/ses/$2$1');
+			else if(req.session.rpmEnabled)data.sendData = data.sendData.replace(new RegExp(`("|')${ req.fullURL.origin }\\/${ req.session.rpm }(.*?)\\1`,'gi'),'$1/ses/$2$1');
 			
 			// on cloudflare checks, inform the user we cant proxy this page 
-			if(sendData.includes('cf-browser-verification cf-im-under-attack'))sendData=sendData
+			if(data.sendData.includes('cf-browser-verification cf-im-under-attack'))data.sendData=data.sendData
 			.replace(/<\/body>/gi,'  <script type="text/javascript" src="/pm-cgi/cloudflare.js"></script>\n</body>')
 			.replace(/<\/head>/gi,'<link rel="stylesheet" href="/pm-cgi/cloudflare.css">\n</head>');
 			
-			if(config.workers && typeof req.query.debug == 'string' && req.query.debug == 'true')sendData=sendData.replace(/<\/body>/gi,`
+			if(config.workers && typeof req.query.debug == 'string' && req.query.debug == 'true')data.sendData=data.sendData.replace(/<\/body>/gi,`
 <!-- [POWERMOUSE STATS]
 Worker: ${threads.threadId}
 Port: ${workerData.port}
@@ -684,7 +666,7 @@ Host: ${os.hostname()}
 --></body>`);
 			switch(url.host){
 				case'discord.com':
-					sendData=await sendData // hacky discord support
+					data.sendData=await data.sendData // hacky discord support
 					.replace(`API_ENDPOINT: '//discord.com/api'`,`API_ENDPOINT: '/https://discordapp.com/api'`) // api for discord.com is odd but discordapp.com works
 					//.replace(`REMOTE_AUTH_ENDPOINT: '//remote-auth-gateway.discord.gg'`,`REMOTE_AUTH_ENDPOINT: '//${req.fullURL.host}/?ws=wss://remote-auth-gateway.discord.gg'`)
 					.replace(`WEBAPP_ENDPOINT: '//discord.com'`,`WEBAPP_ENDPOINT: '//${req.fullURL.host}/https://discord.com'`)
@@ -699,13 +681,13 @@ Host: ${os.hostname()}
 					break;
 				default:break;
 			}
-			try{ sendData=htmlMinify.minify(sendData,{minifyCSS: true, minifyJS: true});
+			try{ data.sendData=htmlMinify.minify(data.sendData, {minifyCSS: true, minifyJS: true});
 			}catch(err){}
 		}
 	}
 	
-	if(config.cache.enabled && ct.match(/^(video|audio|image|text\/css|application\/javascript)/gi) ){
-		var folderPath = config.cache.dir + '/' + btoa(ct).replace(/\//gi, '=-') + '/',
+	if(config.cache.enabled && data.contentType.match(/^(video|audio|image|text\/css|application\/javascript)/gi) ){
+		var folderPath = config.cache.dir + '/' + btoa(data.contentType).replace(/\//gi, '=-') + '/',
 			cacheFile = folderPath + encodeURI(btoa(req.fullURL.href) ).replace(/\//gi, '=-');
 		
 		if(cacheFile.length <= 150){
@@ -713,11 +695,13 @@ Host: ${os.hostname()}
 				fs.mkdirSync(folderPath);
 			}
 			// 10000000 BYTES => 0.01 GB
-			if(Buffer.byteLength(sendData) <= 10000000)fs.writeFileSync(cacheFile, sendData);
+			if(Buffer.byteLength(data.sendData) <= 10000000)fs.writeFileSync(cacheFile, data.sendData);
 		}
 	}
 	
-	res.send(sendData);
+	res.send(data.sendData);
+	
+	return data.clearVariables();
 });
 
 app.use('/', express.static(path.join(__dirname, 'public')));

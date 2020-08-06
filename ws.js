@@ -2,16 +2,22 @@ const ws = require('ws'),
 	fs=require('fs'),
 	util=require('util');
 
-var validURL = (url)=>{
+var conns = 0,
+	validURL = (url)=>{
 		try{
 			return new URL(url)
 		}catch(err){
 			return null
 		}
 	},
-	base64regex = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
+	base64regex = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/,
+	wss = null;
 
-module.exports=((wss, conns)=>{
+module.exports = (server)=>{ // server is passed from the require('')(server) in module.exports
+	wss = new ws.Server({
+		server: server,
+	});
+	
 	wss.on('connection',(cli, req)=>{
 		var ID = String(++ conns).padStart(6, 0);
 		
@@ -78,4 +84,4 @@ module.exports=((wss, conns)=>{
 			}catch(err){}
 		});
 	});
-});
+}

@@ -9,6 +9,10 @@ var methods=['href','src','data'],
 
 if(location.pathname=='/https://discord.com/' || location.pathname=='/https://discord.com/new')location.href='/https://discord.com/login';
 
+if(window.parent.location != window.location && pmURL.host == 'discord.com'){
+	window.parent.location = window.location
+}
+
 var properUrlRegex=new RegExp(`^(${location.origin}|\\/https?:\\/\\/|^\\.\\/|^[^\\/]*|javascript:|data:)`,'gi'); // either the location origin or a local /https:// that is proxied
 	externalSiteRegex=new RegExp(`^(?!${location.origin})(\/\/[^\/]|https?:\/\/)`,'gi');
 
