@@ -11,7 +11,13 @@ var conns = 0,
 		}
 	},
 	base64regex = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/,
-	wss = null;
+	wss = null,
+	btoa=(str,encoding)=>{
+		return Buffer.from(str,'utf8').toString(( typeof encoding == 'undefined' ? 'base64' : encoding))
+	},
+	atob=(str,encoding)=>{
+		return Buffer.from(str, ( typeof encoding == 'undefined' ? 'base64' : encoding)).toString('utf8')
+	};
 
 module.exports = (server)=>{ // server is passed from the require('')(server) in module.exports
 	wss = new ws.Server({
