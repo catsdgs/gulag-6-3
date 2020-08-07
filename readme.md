@@ -32,7 +32,7 @@ npm install
 8. If all packages were successfully installed, you will see no errors returned. If you have any issues with this process, refer to the troubleshooting section. If that does not help, message someone on the discord, or open a Github issue.
 9. Once the installation is complete, in your terminal you can run the line below to start the proxy
 ```
-node --experimental-worker app.js
+npm start
 ```
 10. The page will be available at http://127.0.0.1:8080/ or whatever you set it to in the config.json file. Note: this will only be accessible from your local computer. If you want to set this up for others to use (or you to use elsewhere), refer to the VPS Installation section.
 ### Local Installation (MacOS)
@@ -74,11 +74,11 @@ cd powermouse && npm install
 5. Edit the configuration file to listen on 0.0.0.0:80, instead of localhost.
 6. Run Powermouse.
 ```
-node --experimental-worker app.js
+npm start
 ```
 7. Run Powermouse in background: Enter the following command
 ```
-screen node --experimental-worker app.js
+screen npm start
 ```
 Then press CTRL + A + D. You are now safe to exit the ssh connection.
 ## Configuration:
