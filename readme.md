@@ -8,6 +8,8 @@ Powerful http(s) web proxy compatible with a variety of websites
 &nbsp;
 <a href="https://repl.it/github/vibedivde/powermouse" title="Run on Repl.it"><img alt="Run on Repl.it" src="https://sys32.dev/assets/src/media/replit.svg" width="140" height="30"><img></a>
 &nbsp;
+<a href="https://glitch.com/edit/#!/import/github/vibedivde/powermouse" title="Remix on glitch"><img alt="Remix on glitch" src="https://sys32.dev/assets/src/media/glitch.svg" width="140" height="30"><img></a>
+
 
 ## Installation:
 ### Local Installation (Windows)
