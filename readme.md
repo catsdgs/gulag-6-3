@@ -9,6 +9,11 @@ Powerful http(s) web proxy compatible with a variety of websites
 <a href="https://repl.it/github/vibedivde/powermouse" title="Run on Repl.it"><img alt="Run on Repl.it" src="https://sys32.dev/assets/src/media/replit.svg" width="140" height="30"><img></a>
 &nbsp;
 
+### Notice (replit deploying)
+
+When deploying to repl.it, edit config.json and change `"port": 80` into `"port": null`
+this is important as the default port will be occupied!
+
 ## Installation:
 ### Local Installation (Windows)
 1. Install NodeJS and NPM from [here](https://nodejs.org/en/download/).
