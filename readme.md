@@ -2,13 +2,13 @@
 Powerful http(s) web proxy compatible with a variety of websites
 #### Maintained by <b><i>removed for now</i></b> on Discord
 
-<a href="https://heroku.com/deploy?template=https://github.com/vibedivde/powermouse/tree/master" title="Deploy to Heroku"><img alt="Deploy to Heroku" src="https://sys32.dev/assets/src/media/heroku.svg" width="140" height="30"><img></a>
+<a href="https://heroku.com/deploy?template=https://github.com/vibedivide/powermouse/tree/master" title="Deploy to Heroku"><img alt="Deploy to Heroku" src="https://sys32.dev/assets/src/media/heroku.svg" width="140" height="30"><img></a>
 &nbsp;
-<a href="https://azuredeploy.net/repository=https://github.com/vibedivde/powermouse" title="Deploy to Azure"><img alt="Deploy to Azure" src="https://sys32.dev/assets/src/media/azure.svg" width="140" height="30"><img></a>
+<a href="https://azuredeploy.net/repository=https://github.com/vibedivide/powermouse" title="Deploy to Azure"><img alt="Deploy to Azure" src="https://sys32.dev/assets/src/media/azure.svg" width="140" height="30"><img></a>
 &nbsp;
-<a href="https://repl.it/github/vibedivde/powermouse" title="Run on Repl.it"><img alt="Run on Repl.it" src="https://sys32.dev/assets/src/media/replit.svg" width="140" height="30"><img></a>
+<a href="https://repl.it/github/vibedivide/powermouse" title="Run on Repl.it"><img alt="Run on Repl.it" src="https://sys32.dev/assets/src/media/replit.svg" width="140" height="30"><img></a>
 &nbsp;
-<a href="https://glitch.com/edit/#!/import/github/vibedivde/powermouse" title="Remix on glitch"><img alt="Remix on glitch" src="https://sys32.dev/assets/src/media/glitch.svg" width="140" height="30"><img></a>
+<a href="https://glitch.com/edit/#!/import/github/vibedivide/powermouse" title="Remix on glitch"><img alt="Remix on glitch" src="https://sys32.dev/assets/src/media/glitch.svg" width="140" height="30"><img></a>
 
 ### notice:
 deploying on glitch.me will probably fail and cough up errors then eventually deleting your thing quickly, they are bad!
