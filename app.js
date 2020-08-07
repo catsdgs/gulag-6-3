@@ -1,13 +1,12 @@
-const fs=require('fs'),
-	threads=require('worker_threads'),
-	express = require('express'),
-	util=require('util'),
-	rl=require('serverline'),
-	config=JSON.parse(fs.readFileSync('config.json','utf8') ),
-	fetch=require('node-fetch');
+const fs = require('fs'),
+	threads = require('worker_threads'),
+	util = require('util'),
+	rl = require('serverline'),
+	config = JSON.parse(fs.readFileSync('config.json','utf8') ),
+	fetch = require('node-fetch');
 
-var errors=0, // set this to 0 every 2 seconds
-	workers={
+var errors = 0, // set this to 0 every 2 seconds
+	workers = {
 		broadcast: ((data)=>{
 			workers.instances.forEach((e,i)=>{
 				e.postMessage(data);
@@ -15,6 +14,65 @@ var errors=0, // set this to 0 every 2 seconds
 		}),
 		instances: [],
 		sessions: {}
+	},
+	ip, tlds, tldsv,
+	makeWorker = (i)=>{
+		if(config.workers.max_errors < errors )return console.log('Error count at ' + config.workers.max_errors + ', refusing to create more workers..');
+		// dont have too many workers running and stopping, power doesnt grow off trees!
+		
+		const index = i + 1;
+		
+		var worker_port = process.env.PORT || config.webserver.port;
+		
+		if(process.env.REPL_OWNER != null)worker_port = null; // on repl.it
+		
+		if(config.workers.count > 1)worker_port = worker_port+i;
+		
+		var worker = new threads.Worker('./server.js', {
+			workerData: { port: worker_port, ip: ip, tldRegex: tldRegex, tldList: tldList }
+		});
+		
+		workers.instances[index] = worker;
+		
+		worker.on('message', (data)=>{
+			switch(data.type){
+				case'log':
+					console.log(`Worker ${index}: ${data.value}`)
+					
+					break
+				case'store_set':
+					workers.sessions[data.sid] = data.session;
+					
+					workers.broadcast({ type: 'update_session', sessions: workers.sessions });
+					
+					break
+				case'store_get':
+					workers.sessions[data.sid].__lastAccess = Date.now();
+					
+					worker.postMessage({ to: 'store_get', session: workers.sessions[data.sid] })
+					
+					break
+				case'store_del':
+					delete workers.sessions[data.sid]
+					
+					break
+			}
+		});
+		worker.on('error', (err)=>{
+			console.log(`Worker ${index} ERR:`);
+			
+			console.log(err);
+			
+			errors++
+			
+			workers[index] = null
+			
+			makeWorker(i); // make a new identical worker
+		});
+		
+		worker.on('exit', (code) => {
+			if(code!=0)console.log('Worker stopped with exit code ', code);
+		});
 	};
 
 if(config.proxy.vpn.enabled)console.log('Using socks5 proxy: socks5://' + config.proxy.vpn.socks5);
@@ -41,9 +99,9 @@ try{
 	(async()=>{
 		// we need the IP address to filter out on websites such as whatsmyip.org and whatnot
 		
-		var ip = await fetch('https://api.ipify.org/').then(res => res.text()).catch((err)=> ipv = '127.0.0.1' ),
-			tlds=/./g, tldList=[],
-			tldsv=await fetch('https://publicsuffix.org/list/effective_tld_names.dat').then(res => res.text()).catch((err)=> tldsv = '.com\n.org\n.net' );
+		ip = await fetch('https://api.ipify.org/').then(res => res.text()).catch((err)=> ipv = '127.0.0.1' ),
+		tlds = /./g, tldList=[],
+		tldsv = await fetch('https://publicsuffix.org/list/effective_tld_names.dat').then(res => res.text()).catch((err)=> tldsv = '.com\n.org\n.net' );
 		
 		tldsv.split('\n').forEach((e,i,a)=>{
 			if(!e.match(/(?:\*|\/\/|\s|\.)/gi) && e.length>=1){
@@ -51,67 +109,8 @@ try{
 				tlds+=`${e.replace('.','\\.')}|`;
 			}
 		});
-		
 		tldRegex = new RegExp(`\\.(?:${tlds.substr(0,tlds.length-1)})$`,'gi');
-
 		console.log('Fetched domain TLDS (', tldsv.length ,')');
-
-		var makeWorker=((i)=>{
-			if(config.workers.max_errors < errors )return console.log('Error count at ' + config.workers.max_errors + ', refusing to create more workers..');
-			// dont have too many workers running and stopping, power doesnt grow off trees!
-			
-			const index = i + 1;
-			
-			var worker_port = process.env.PORT || config.webserver.port;
-			
-			if(config.workers.count > 1)worker_port = worker_port+i;
-			
-			var worker = new threads.Worker('./server.js', {
-				workerData: { port: worker_port, ip: ip, tldRegex: tldRegex, tldList: tldList }
-			});
-			
-			workers[index] = worker;
-			
-			worker.on('message', (data)=>{
-				switch(data.type){
-					case'log':
-						console.log(`Worker ${index}: ${data.value}`)
-						
-						break
-					case'store_set':
-						workers.sessions[data.sid] = data.session;
-						
-						workers.broadcast({ type: 'update_session', sessions: workers.sessions });
-						
-						break
-					case'store_get':
-						workers.sessions[data.sid].__lastAccess = Date.now();
-						
-						worker.postMessage({ to: 'store_get', session: workers.sessions[data.sid] })
-						
-						break
-					case'store_del':
-						delete workers.sessions[data.sid]
-						
-						break
-				}
-			});
-			worker.on('error', (err)=>{
-				console.log(`Worker ${index} ERR:`);
-				
-				console.log(err);
-				
-				errors++
-				
-				workers[index] = null
-				
-				makeWorker(i); // make a new identical worker
-			});
-			
-			worker.on('exit', (code) => {
-				if(code!=0)console.log('Worker stopped with exit code ',code);
-			});
-		});
 		
 		if(config.workers.count)for(var i=0;i<config.workers.count; i++)makeWorker(i);
 		else makeWorker(0);
@@ -130,6 +129,12 @@ rl.on('line', function(line) {
 		case'run': // debugging
 			try{console.log(util.format(eval(mts)))}
 			catch(err){console.log(util.format(err))};
+			break
+		case'reload':
+			workers.instances.forEach( (worker, index)=>{
+				worker.terminate();
+				makeWorker(index - 1);
+			});
 			break
 		case'stop':case'exit':
 			process.exit(0);
