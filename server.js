@@ -1,28 +1,28 @@
-const fs=require('fs'),
+const fs = require('fs'),
 	process = require('process'),
-	threads=require('worker_threads'),
-	fetch=require('node-fetch'),
-	express=require('express'),
-	websocket=require('ws'),
-	app=express(),
-	path=require('path'),
-	mime=require('mime'),
-	util=require('util'),
-	cookieParser=require('cookie-parser'),
-	streamPipeline=util.promisify(require('stream').pipeline),
-	https=require('https'),
-	http=require('http'),
-	bodyParser=require('body-parser'),
-	htmlMinify=require('html-minifier'),
-	compression=require('compression'),
-	os=require('os'),
+	threads = require('worker_threads'),
+	fetch = require('node-fetch'),
+	express = require('express'),
+	websocket = require('ws'),
+	app = express(),
+	path = require('path'),
+	mime = require('mime'),
+	util = require('util'),
+	cookieParser = require('cookie-parser'),
+	streamPipeline = util.promisify(require('stream').pipeline),
+	https = require('https'),
+	http = require('http'),
+	bodyParser = require('body-parser'),
+	htmlMinify = require('html-minifier'),
+	compression = require('compression'),
+	os = require('os'),
 	crypto = require('crypto'),
 	dns = require('dns'),
 	socksProxyAgent = require('socks-proxy-agent');
-var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
-	args=process.argv.splice(2),
-	ssl={},tt='',
-	msgPage=page=fs.readFileSync(__dirname+'/public/error.html','utf8');
+var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
+	args = process.argv.splice(2),
+	ssl = {key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')},
+	msgPage = page = fs.readFileSync(__dirname+'/public/error.html','utf8'),
 	httpsAgent = new https.Agent({
 		rejectUnauthorized: false,
 		keepAlive: true,
@@ -31,10 +31,9 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 		rejectUnauthorized: false,
 		keepAlive: true,
 	}),
-	genMsg=((req,res,code,value)=>{ try{
+	genMsg = (req,res,code,value)=>{ try{
 		var url = req.url,
 			method=req.method;
-		
 		
 		res.contentType('text/html');
 		req.msgShown = true
@@ -66,7 +65,7 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%',`Cannot ${method} ${url}`));
 				break
 		}
-	}catch(err){} }),
+	}catch(err){}},
 	validURL = (url)=>{
 		try{
 			return new URL(url)
@@ -74,38 +73,41 @@ var config=JSON.parse(fs.readFileSync('config.json','utf-8')),
 			return null
 		}
 	},
-	randomIP=(()=>{
+	randomIP = ()=>{
 		return (Math.floor(Math.random() * 255) + 1)+"."+(Math.floor(Math.random() * 255))+"."+(Math.floor(Math.random() * 255))+"."+(Math.floor(Math.random() * 255))
-	});
-	getDifference=((begin,finish)=>{
+	},
+	getDifference = (begin,finish)=>{
 		var ud=new Date(finish-begin);
 		var s=Math.round(ud.getSeconds());
 		var m=Math.round(ud.getMinutes());
 		var h=Math.round(ud.getUTCHours());
 		return `${h} hours, ${m} minutes, ${s} seconds`
-	}),
-	addproto=((url)=>{
+	},
+	addproto = (url)=>{
 		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = "https://" + url;
 		return url;
-	}),
-	similar=((a,b)=>{
+	},
+	similar = (a,b)=>{
 		var equivalency = 0;
 		var minLength = (a.length > b.length) ? b.length : a.length;    
 		var maxLength = (a.length < b.length) ? b.length : a.length;    
 		for(var i=0;i<minLength;i++)if(a[i]==b[i])equivalency++;
 		var weight = equivalency / maxLength;
 		return (weight * 100);
-	}),
-	ready=(()=>{
+	},
+	ready = ()=>{
 		if(config.webserver.listenip=='0.0.0.0' || config.webserver.listenip=='127.0.0.1')config.webserver.listenip='localhost';
-		var msg=`Listening on ${config.webserver.ssl ? 'https' : 'http'}://${config.webserver.listenip}:${workerData.port}${tt}`;
+		var msg=`Listening on ${config.webserver.ssl ? 'https' : 'http'}://${config.webserver.listenip}:${workerData.port}`;
 		threads.parentPort.postMessage({type:'log', id: threads.threadId, value: msg});
-	}),
+	},
 	btoa=(str,encoding)=>{
 		return Buffer.from(str,'utf8').toString(( typeof encoding == 'undefined' ? 'base64' : encoding))
 	},
 	atob=(str,encoding)=>{
 		return Buffer.from(str, ( typeof encoding == 'undefined' ? 'base64' : encoding)).toString('utf8')
+	},
+	getFileUpdatedDate = (path) => {
+		return fs.statSync(path).atimeMs
 	},
 	proxyAgent = null;
 
@@ -126,7 +128,7 @@ threads.parentPort.on('message',(data)=>{
 			sessions = data.sessions;
 			break
 		default:
-			console.log(data);
+			
 			break
 	}
 });
@@ -149,15 +151,6 @@ app.use(compression({
 http.globalAgent.maxSockets = Infinity;
 https.globalAgent.maxSockets = Infinity;
 
-if(!args || !args[0])ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')};
-else switch(args[0].toLowerCase()){
-	case'dev':
-		tt=', DEV environment';
-		ssl={key: fs.readFileSync('ssl/localhost.key','utf8'),cert:fs.readFileSync('ssl/localhost.crt','utf8')}
-		break;
-	default:
-		ssl={key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')};
-}
 listen=config.webserver.listenip;
 if(config.webserver.ssl==true)server=https.createServer(ssl,app).listen(workerData.port, config.webserver.listenip,ready);
 else server=http.createServer(app).listen(workerData.port, config.webserver.listenip,ready);
@@ -167,13 +160,16 @@ require('./ws.js')(server);
 app.use((req,res,next)=>{
 	// hacky implementation of session stuff
 	// this will add request.session ( a proxy thing acting as an object so it can see whats being added to push to the centeral script )
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	
 	req.fullURL = new URL('https://'+req.get('host')+req.originalUrl);
 	
 	var sid = req.cookies['connect.sid'],
-		cookie = { maxAge: 900000, httpOnly: true, domain: req.fullURL.host.match(/\..{2,3}(?:\.?.{2,3}).*?$/gim), secure: true, sameSite: 'Lax' };
+		cookie = { maxAge: 900000, httpOnly: true/*, domain: req.fullURL.host.match(/\..{2,3}(?:\.?.{2,3}).*?$/gim)*/, secure: true, sameSite: 'Lax' };
 	
-	if(sid == undefined || sid.length <= 7){
+	/* note: remove the domain: blah stuff when testing on an insecure, rather https:// with that yellow lock icon thing on firefox showing up, makes the sid go out of control */
+	
+	if(typeof sid == 'undefined' || sid.length <= 7){
 		while(true){
 			sid=crypto.randomBytes(32).toString('hex');
 			if(sessions[sid] != null)continue;
@@ -181,9 +177,9 @@ app.use((req,res,next)=>{
 		}
 	}
 	
-	res.cookie('connect.sid', sid , cookie);
+	res.cookie('connect.sid', sid, cookie);
 	
-	res.cookie('pm-server', os.hostname().substr(0,4).toLowerCase() , cookie);
+	res.cookie('pm-server', os.hostname().substr(0,4).toLowerCase(), cookie);
 	
 	if(sessions[sid] == null)sessions[sid]={}
 	
@@ -361,6 +357,8 @@ app.use(async (req,res,next)=>{
 	else if(req.fullURL.pathname == '/clrSes'){
 		req.session.expires = Date.now(); // set it so this session expires quicklyy
 		return res.send(msgPage.replace('%TITLE%','Session data cleared').replace('%REASON%', 'All was done with success' ));
+	}else if(req.fullURL.pathname.match(/^\/{3}/gi)){ //, //domain.tld => https://domain.tld
+		return res.redirect(302, req.fullURL.pathname.replace(/^\/{3}/gi, '/https://') )
 	}
 	
 	var data = {
@@ -393,13 +391,12 @@ app.use(async (req,res,next)=>{
 		},
 		url;
 	
-	if(req.fullURL.pathname=='/https://discordapp.com/api/v6/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login' }));
+	var tooManyOrigins=new RegExp(`(?:${req.fullURL.origin.replace(/\//g,'\\/').replace(/\./gi,'\\.')}\/|\/\/${req.fullURL.host.replace(/\\./g,'\\.')})`,'gi');
 	
-	var tooManyOrigins=new RegExp(`${req.fullURL.origin.replace(/\//g,'\\/').replace(/\./gi,'\\.')}\/`,'gi');
-	if(req.url.substr(1).match(tooManyOrigins))return res.redirect(307,req.url.replace(tooManyOrigins,''));
-	
-	var tooManyOrigins=new RegExp(`//${req.fullURL.host.replace(/\\./g,'\\.')}`,'gi');
-	if(req.url.substr(1).match(tooManyOrigins))return res.redirect(307,req.url.replace(tooManyOrigins,''));
+	if(req.url.substr(1).match(tooManyOrigins)){
+		res.redirect(307,req.url.replace(tooManyOrigins,''));
+		return data.clearVariables();
+	}
 	
 	reloadURLs();
 	
@@ -418,10 +415,10 @@ app.use(async (req,res,next)=>{
 		urlData.forEach((e,i)=>{
 			var regoink=new RegExp(`^\/alias\/${e.alias}`,'gi');
 			if(req.fullURL.pathname.match(regoink)){
-				shor=e.value; // set shortened to the value found within the url data stuff
+				shor = e.value; // set shortened to the value found within the url data stuff
 				aliasSet = e.alias;
-				newURL=req.url.replace(regoink,e.value);
-				url=new URL(newURL);
+				newURL = req.url.replace(regoink,e.value);
+				url = new URL(newURL);
 				
 			}
 		});
@@ -441,6 +438,7 @@ app.use(async (req,res,next)=>{
 	}else try{
 		url = new URL(req.fullURL.href.substr(req.fullURL.origin.length + 1));
 	}catch(err){
+		
 		// req.session.ref is only set when the content-type is text/html and is not an iframe or object
 		if(req.session.ref != undefined && req.session.ref.length>=1){
 			var ref=new URL(req.session.ref),newURL='/'+ref.origin+req.url;
@@ -561,7 +559,8 @@ app.use(async (req,res,next)=>{
 	
 	if(data.contentType == null || typeof data.contentType == 'undefined')data.contentType = 'text/html'; // set to text/html as last ditch effort
 	
-	if(data.contentType.startsWith('text/html') && data.response.status == 200 && typeof req.query['pm-origin'] == 'undefined')req.session.ref=url.href;
+	if(data.response.status.toString().startsWith('20') && data.contentType.startsWith('text/html') && typeof req.query['pm-origin'] == 'undefined')req.session.ref = url.href;
+	req.session.ref = url.href
 	
 	if(req.fullURL.href.match(/\.wasm$/gi))data.contentType = 'application/wasm'
 	
@@ -609,43 +608,40 @@ app.use(async (req,res,next)=>{
 			data.sendData = data.sendData
 			
 			// replace "//bing.com" => "https://bing.com"
-			.replace(/(?<!base )((?:target|href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))\/{2}/gi,'$1https://')
+			.replace(/(\s[\D\S]*?\s*?=\s*?(\"|\'))\/{2}([\s\S]*?)\2/gi, '$1https://$3$2')
+			// older:
+			//.replace(/((?:target|href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))\/{2}/gi,'$1https://')
 			
 			// /websitelocalfilething => https://domain.tld/websitelocalfilething 
-			.replace(/(?<!base )((?:target|href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))((?!data:|javascript:)\/[\s\S]*?)((?:"|'))/gi,'$1' + url.origin + '$2$3')
+			.replace(/((?:target|href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))((?!data:|javascript:)\/[\s\S]*?)((?:"|'))/gi,'$1' + url.origin + '$2$3')
 			
 			// ./img/bruh => https://domain.tld/directory/img/bruh
-			.replace(/(?<!base )((?:target|href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))\.\/([\s\S]*?)((?:"|'))/gi,'$1' + urlDirectory + '$2$3')
+			.replace(/((?:target|href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))\.\/([\s\S]*?)((?:"|'))/gi,'$1' + urlDirectory + '$2$3')
 			
 			// this does all the proxying magic!!! "https://otherdomain.tld => "https://localhost/https://otherdomain.tld
 			.replace(new RegExp('("|\')(?=https?:\\/\\/)(?!' + regexFullOrigin + ')(.*?)\\1', 'gi'), '$1' + req.fullURL.origin + '/$2$1')
-			.replace(/(xmlns(:[a-z]+)?=")\//gi, "$1")
-			.replace(/(<!DOCTYPE[^>]+")\//i, "$1")
-			.replace(new RegExp(`/(https://)${req.fullURL.host}/`,'gi'),'/$1')
 			.replace(/ (integrity|nonce)[\s]*?=[\s]*?".*?" ?/gi,'') // integrity and nonce cant be used 
 			.replace(/(\.integrity[\s]*?=[\s]*?)("|')([\s\S]*?)\2/gi, '$1null')
-			// .replace(/('|")(wss:\/\/.*?)('|")/gi,'$1'+`wss://${req.fullURL.host}/?ws=`+"$2$3")
 			.replace(/(?:document|window|location|window.location|document.location)(\.(?:href|host|hostname|pathname|port|protocol|hash|search))/gi,'pmURL$1')
 			// pm url should be defined in a script somewhere
-			// .replace(/<title.*?>.*?<\/ ?title>/gi,'<title>‮</title>')
+			.replace(/<title.*?>.*?<\/ ?title>/gi,'<title>‮</title>')
 			.replace(/("|').[^"']*\.ico(?:\?.*?)?("|')/gi,'$1/favicon.ico$2')
 			.replace(/ ?onmousedown="return rwt\(this,.*?"/gi,'')
 			.replace(/("|')_(?:blank|top|parent)\1/gi,'$1_self$1')
 			.replace(/(<(?:iframe|object)\s*src=("|'))((?:(?!\?)[\s\S])*?)(?:\2)/gi,'$1$3?pm-origin='+btoa(url.host)+'$2') // this regex is for strings without the ? in it
 			.replace(/(<(?:iframe|object)\s*src=("|'))((?:(?!&pm-origin=)[\s\S])*?)(?:\2)/gi,'$1$3&pm-origin='+btoa(url.host)+'$2') // this regex for the strings without the &pm-origin= inside of it
-			.replace(new RegExp(`${regUrlOri}\/\.\/`,'gi'),`./`)
 			.replace(new RegExp(`(?:${req.fullURL.origin}|${url.origin})/data:`,'gi'),'data:') // fix data urls last
-			.replace(/(<script(?:.*?)>(?:(?!<\/script>)[\s\S])*<\/script>|<\/head>)/i,'<script  data="' + btoa(url.href) + '" src="/pm-cgi/preload.js"></script>$1')
-			.replace(/history\.(pushstate|replacestate)/gi, 'emptyFunctionPreload')
+			.replace(/(<script(?:.*?)>(?:(?!<\/script>)[\s\S])*<\/script>|<\/head>)/i,'<script  data="' + btoa(url.href) + '" src="/pm-cgi/preload.js?' + getFileUpdatedDate('./public/pm-cgi/preload.js') + '"></script>$1')
+			.replace(new RegExp(`${regUrlOri}\/\.\/`,'gi'),`./`)
 			;
 			
 			if(!req.session.rpmEnabled){
 				data.sendData = data.sendData
-				.replace(/<\/head>/gi,'<script src="/pm-cgi/inject.js"></script></head>')
+				.replace(/<\/head>/gi,'<script src="/pm-cgi/inject.js?' + getFileUpdatedDate('./public/pm-cgi/inject.js') + '"></script></head>')
 				;
 			}
 			
-			if(!aliasMode && !req.session.rpmEnabled)data.sendData = data.sendData.replace(/<\/head>/gi,'<script src="/pm-cgi/windowURL.js"></script></head>')
+			if(!aliasMode && !req.session.rpmEnabled)data.sendData = data.sendData.replace(/<\/head>/gi,'<script src="/pm-cgi/windowURL.js?' + getFileUpdatedDate('./public/pm-cgi/windowURL.js') + '"></script></head>')
 			
 			// replace reference to alias URL with alias
 			else if(aliasMode)data.sendData = data.sendData.replace(new RegExp(`("|')(${ req.fullURL.origin })?\/${shor}(.*?)("|')`,'gi'),'$1/alias/'+aliasSet+'/$2$3')
