@@ -10,6 +10,8 @@ Powerful http(s) web proxy compatible with a variety of websites
 &nbsp;
 <a href="https://glitch.com/edit/#!/import/github/vibedivde/powermouse" title="Remix on glitch"><img alt="Remix on glitch" src="https://sys32.dev/assets/src/media/glitch.svg" width="140" height="30"><img></a>
 
+### notice:
+deploying on glitch.me will probably fail and cough up errors then eventually deleting your thing quickly, they are bad!
 
 ## Installation:
 ### Local Installation (Windows)
