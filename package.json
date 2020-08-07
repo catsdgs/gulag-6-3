@@ -14,8 +14,7 @@
 		"url": "https://github.com/titaniumnetwork-dev/powermouse/issues"
 	},
 	"scripts": {
-		"start": "node app.js",
-		"dev": "node app.js dev"
+		"start": "node --experimental-worker app.js"
 	},
 	"homepage": "https://titaniumnetwork.org/",
 	"dependencies": {
