@@ -35,10 +35,13 @@ var emptyFunctionPreload = ()=>{},
 		
 		// url should be formed nicely so just like base64ify it
 		
-		url = location.origin + '/?pmURL=' + btoa(url);
+		if(url.length <= 1024)url = location.origin + '/?pmURL=' + btoa(url)
+		else url = location.origin + '/' + url
 		
 		return url
 	};
+
+
 
 class ImageSpoof {
 	constructor (){
@@ -159,7 +162,7 @@ history.replaceState = function(){
 		url = args[2],
 		regex_pm_origin;
 	
-	_pushState.apply(this, args);
+	_replaceState.apply(this, args);
 	
 	if(url.match(/^\/(?!\/|https:\/\/)/gi))url = location.origin + '/' + pmURL.origin + url; // url starts with /
 	
@@ -167,7 +170,7 @@ history.replaceState = function(){
 	args[1] = title
 	args[2] = url
 	
-	setTimeout(()=> _pushState.apply(this, args), 500);
+	return _replaceState.apply(this, args)
 }
 
 window.fetch = (url, options)=>{
@@ -186,30 +189,6 @@ XMLHttpRequest.prototype.open = function() {
 	
 	_xmlopen.apply(this, args);
 }
-
-var _HTMLElement = HTMLElement
-
-class __HTMLElement {
-	constructor(){
-		var args = arguments,
-			output = _HTMLElement.apply(args);
-		
-		output = new Proxy(output, {
-			set: (obj, prop, value) => {
-				console.log('SET:', obj, prop, value);
-
-				obj[prop] = value;
-
-				return true;
-			}
-		});
-		
-		return output
-		
-	}
-}
-
-HTMLElement = __HTMLElement
 
 var _setAttribute = window.Element.prototype.setAttribute
 
