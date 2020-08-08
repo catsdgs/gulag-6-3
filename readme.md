@@ -13,6 +13,10 @@ Powerful http(s) web proxy compatible with a variety of websites
 ### notice:
 deploying on glitch.me will probably fail and cough up errors then eventually deleting your thing quickly, they are bad!
 
+### second notice:
+
+if you are getting the error `Error While Loading Shared Libraries (libGLU.so.1)` and are on ubuntu, run `apt-get install libglu1` as sudo and try installing and starting powermouse
+
 ## Installation:
 ### Local Installation (Windows)
 1. Install NodeJS and NPM from [here](https://nodejs.org/en/download/).
