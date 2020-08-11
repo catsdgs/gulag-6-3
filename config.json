@@ -13,7 +13,7 @@
 		}
 	},
 	"workers": {
-		"enabled": false,
+		"enabled": true,
 		"max_errors": 12,
 		"manual_amount": {
 			"enabled": false,
