@@ -131,6 +131,9 @@ rl.on('line', function(line) {
 			catch(err){console.log(util.format(err))};
 			break
 		case'reload':
+			Object.keys(require.cache).forEach(function(key) {
+				delete require.cache[key];
+			});  
 			workers.instances.forEach( (worker, index)=>{
 				worker.terminate();
 				makeWorker(index - 1);

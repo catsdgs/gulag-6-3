@@ -7,15 +7,36 @@ var methods=['href','src','data'],
 		console.info('%c[Powermouse]','color: #805a00;',str);
 	});
 
-if(location.pathname=='/https://discord.com/' || location.pathname=='/https://discord.com/new')location.href='/https://discord.com/login';
-
-if(window.parent.location != window.location && pmURL.host == 'discord.com'){
+if(window.parent.location != window.location && pm_url.host == atob('ZGlzY29yZC5jb20=') ){
 	window.parent.location = window.location
 }
 
 var properUrlRegex=new RegExp(`^(${location.origin}|\\/https?:\\/\\/|^\\.\\/|^[^\\/]*|javascript:|data:)`,'gi'); // either the location origin or a local /https:// that is proxied
 	externalSiteRegex=new RegExp(`^(?!${location.origin})(\/\/[^\/]|https?:\/\/)`,'gi');
 
+setInterval(()=>{
+	var iframe_elements = Array.from(document.querySelectorAll('iframe'));
+	
+	iframe_elements.forEach((element, element_index)=>{
+		var src = element.getAttribute('src');
+		
+		if(src != null && src.match(/^(?!javascript:|data:|about:).*/gi)){ // not data: or javascript: or about:
+			var new_src = src;
+			
+			if(new_src.match(/^\/(?!https?:\/\/).*/gi)){ // value starts with / and not anythin else
+				new_src = pm_url.origin + new_src
+			}
+			
+			if(!new_src.startsWith(location.origin))new_src = location.origin + '/' + new_src
+			
+			// check if new src is different before setting attribute to prevent a refresh or additional loading
+			
+			if(src != new_src)element.setAttribute('src', new_src);
+		}
+	});
+}, 250);
+
+/*
 setInterval(()=>{ // run every 0.25 seconds
 	var linkElements=document.getElementsByTagName('a'); // all A links with a href
 	Array.from(linkElements).forEach((element,i)=>{
@@ -24,7 +45,7 @@ setInterval(()=>{ // run every 0.25 seconds
 		var href=element.getAttribute('href').replace(/^\/\/([^\/])/gi,'https://$1');
 		
 		if(href.match(properUrlRegex)[0] == ''){ // this is not a proxied url!
-			var newHref=location.origin+'/'+pmURL.origin+href
+			var newHref=location.origin+'/'+pm_url.origin+href
 			
 			element.setAttribute('href',newHref);
 		}else if( href.match(externalSiteRegex) != null ){ // external link
@@ -48,3 +69,4 @@ setInterval(()=>{ // run every 0.25 seconds
 		if(fixedSrc != false)element.setAttribute('src',fixedSrc);
 	});
 },500);
+*/

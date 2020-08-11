@@ -1,4 +1,4 @@
-if(pmURL.pathname == '/login'){
+if(pm_url.pathname == '/login'){
 
 	var ready=(()=>{
 			clearInterval(checkReady);

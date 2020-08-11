@@ -38,7 +38,7 @@ fancyButtons.forEach((e,i)=>{
 	button.innerHTML=strToCharcode(e[0]); // set contents of button
 	
 	button.addEventListener('click', ()=>{ // dont use a hrefs becaus that will show up in the document
-		location.replace('/prox?url='+e[1]);
+		location.href = '/prox?url='+e[1];
 	});
 });
 
