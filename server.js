@@ -448,6 +448,9 @@ app.use(async (req,res,next)=>{
 			return genMsg(req,res,404);
 		}
 	}
+	console.log(url.href);
+	if(url.href == 'https://discordapp.com/api/v6/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'What are you doing, you cretin. Discord support simply put, will not work! The recaptcha cannot be proxied. Please consider using the QR code scanner or token login option to access discord.' }));
+	
 	
 	if(url.hostname == 'discord.com' && (url.pathname == '/new' || url.pathname == '/')){
 		res.redirect(307, req.fullURL.origin + '/' + url.origin + '/login')
