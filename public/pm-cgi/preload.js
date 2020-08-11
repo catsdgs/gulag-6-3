@@ -196,7 +196,7 @@ class WebSocketSpoof {
 		var args = arguments,
 			url = new URL(arguments[0]);
 		
-		if(url.host != location.host)url = new URL(`wss://${location.host}/?ws=${btoa(url.href)}`)
+		if(url.host != location.host)url = new URL( (location.protocol == 'https:' ? 'wss' : 'ws') + '://' + location.host + '/?ws=' + btoa(url.href))
 		
 		var created_websocket = new _websocket(url.href);
 		
