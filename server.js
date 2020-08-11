@@ -448,7 +448,7 @@ app.use(async (req,res,next)=>{
 			return genMsg(req,res,404);
 		}
 	}
-	console.log(url.href);
+	
 	if(url.href == 'https://discordapp.com/api/v6/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login option to access discord' }));
 	
 	
