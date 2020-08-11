@@ -13,6 +13,17 @@ Powerful http(s) web proxy compatible with a variety of websites
 ### notice:
 deploying on glitch.me will probably fail and cough up errors then eventually deleting your thing quickly, they are bad!
 
+## Quick start guide:
+
+Run in a terminal:
+`git clone https://github.com/vibedivide/powermouse ./powermouse/ && cd ./powermouse/ && npm i && npm start`
+then visit http://localhost:80 in your browser if no errors occured
+
+1. clone repository
+2. cd into repository
+3. install packages
+4. start app
+
 ## Installation:
 ### Local Installation (Windows)
 1. Install NodeJS and NPM from [here](https://nodejs.org/en/download/).
