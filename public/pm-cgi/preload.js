@@ -256,15 +256,26 @@ document.createElement = function(){
 	return element;
 }
 
-history.pushState = function(){
-	var args = arguments,
-		state = args[0],
-		title = args[1],
-		url = args[2];
+var state_proxifyURL = (url)=>{
+	var url = url
 	
-	if(url.match(/^\/(?!\/)/gi))url = location.origin + '/' + pm_url.origin + url; // url starts with /
+	if(data.alias_mode){
+		// url starts with /, replace with alias stuff
+		if(url.match(/^\/(?!\/|alias\/)/gi))url = location.origin + '/' + data.alias_url + '/' + url
+		
+		url = url.replace(pm_url.origin, '/' + data.alias_url + '/')
+	}else if(data.pm_session == true){
+		// url starts with /, replace with /ses/
+		if(url.match(/^\/(?!\/)/gi))url = location.origin + '/ses/' + url
+		
+		url = url.replace(pm_url.origin, '/ses/')
+		
+	}else{
+		// url starts with /
+		if(url.match(/^\/(?!\/)/gi))url = location.origin + '/' + pm_url.origin + url
+	}
 	
-	return _pushState.apply(this, args);
+	return url
 }
 
 history.pushState = function(){
@@ -273,13 +284,7 @@ history.pushState = function(){
 		title = args[1],
 		url = args[2];
 	
-	// url starts with /
-	
-	if(url.match(/^\/(?!\/)/gi))url = location.origin + '/' + pm_url.origin + url;
-	
-	args[0] = state
-	args[1] = title
-	args[2] = url
+	url = state_proxifyURL(url);
 	
 	return _pushState.apply(this, args);
 }
@@ -292,9 +297,7 @@ history.replaceState = function(){
 		regex_pm_origin,
 		returnthing = _replaceState.apply(this, args);
 	
-	
-	
-	if(url.match(/^\/(?!\/|https:\/\/)/gi))url = location.origin + '/' + pm_url.origin + url; // url starts with /
+	url = state_proxifyURL(url);
 	
 	args[0] = state
 	args[1] = title

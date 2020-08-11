@@ -1,6 +1,5 @@
 const fs = require('fs'),
 	process = require('process'),
-	threads = require('worker_threads'),
 	fetch = require('node-fetch'),
 	express = require('express'),
 	websocket = require('ws'),
@@ -18,15 +17,15 @@ const fs = require('fs'),
 	os = require('os'),
 	crypto = require('crypto'),
 	dns = require('dns'),
+	socksProxyAgent = require('socks-proxy-agent'),
 	image = {
 		jpeg: require('imagemin-mozjpeg'),
 		webp: require('imagemin-webp'),
-	},
-	socksProxyAgent = require('socks-proxy-agent');
+	};
 var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 	args = process.argv.splice(2),
-	ssl = {key: fs.readFileSync('ssl/default.key','utf8'),cert:fs.readFileSync('ssl/default.crt','utf8')},
-	msgPage = page = fs.readFileSync(__dirname+'/public/error.html','utf8'),
+	ssl = {key: fs.readFileSync('ssl/default.key','utf8'), cert: fs.readFileSync('ssl/default.crt','utf8')},
+	message_page = fs.readFileSync(path.join(__dirname, '/public/error.html') ,'utf8'),
 	httpsAgent = new https.Agent({
 		rejectUnauthorized: false,
 		keepAlive: true,
@@ -45,28 +44,28 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 		switch(code){
 			case 696: // glorified 404
 				res.status(404)
-				return res.send(msgPage.replace('%TITLE%','Bad domain').replace('%REASON%', (value || `Cannot ${method} ${url}`) ));
+				return res.send(message_page.replace('%TITLE%','Bad domain').replace('%REASON%', (value || `Cannot ${method} ${url}`) ));
 				break
 			case 697:
 				res.status(500)
-				return res.send(msgPage.replace('%TITLE%',value.code).replace('%REASON%', value.message ));
+				return res.send(message_page.replace('%TITLE%',value.code).replace('%REASON%', value.message ));
 				break
 			case 400:
 				res.status(code)
-				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%', (value || 'Bad request') ));
+				return res.send(message_page.replace('%TITLE%',code).replace('%REASON%', (value || 'Bad request') ));
 				break
 			case 403:
 				res.status(code)
-				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%', (value || 'Access forbidden') ));
+				return res.send(message_page.replace('%TITLE%',code).replace('%REASON%', (value || 'Access forbidden') ));
 				break
 			case 500:
 				res.status(code)
-				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%', (value || 'A server is unable to handle your request') ));
+				return res.send(message_page.replace('%TITLE%',code).replace('%REASON%', (value || 'A server is unable to handle your request') ));
 				break
 			case 404:
 			default:
 				res.status(code);
-				return res.send(msgPage.replace('%TITLE%',code).replace('%REASON%',`Cannot ${method} ${url}`));
+				return res.send(message_page.replace('%TITLE%',code).replace('%REASON%',`Cannot ${method} ${url}`));
 				break
 		}
 	}catch(err){}},
@@ -101,8 +100,8 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 	},
 	ready = ()=>{
 		if(config.webserver.listenip=='0.0.0.0' || config.webserver.listenip=='127.0.0.1')config.webserver.listenip='localhost';
-		var msg=`Listening on ${config.webserver.ssl ? 'https' : 'http'}://${config.webserver.listenip}:${workerData.port}`;
-		threads.parentPort.postMessage({type:'log', id: threads.threadId, value: msg});
+		var msg = `Listening on ${config.webserver.ssl ? 'https' : 'http'}://${config.webserver.listenip}:${workerData.port}`;
+		process.send({ type: 'started', msg: msg });
 	},
 	btoa=(str,encoding)=>{
 		return Buffer.from(str,'utf8').toString(( typeof encoding == 'undefined' ? 'base64' : encoding))
@@ -112,80 +111,112 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 	},
 	proxyAgent = (config.proxy.vpn.enabled == true ? new socksProxyAgent('socks5://' + config.proxy.vpn.socks5) : null)
 	sessions = new Object(),
-	workerData = {
-		ip: threads.workerData.ip,
-		tlds: threads.workerData.tldRegex,
-		port: threads.workerData.port,
-		tldList: threads.workerData.tldList,
-	}
+	workerData = new Object();
 
-threads.parentPort.on('message',(data)=>{
+process.on('message',(data)=>{
 	switch(data.type){
+		case'workerData':
+			
+			workerData = data
+			
+			// start up server stuff
+			listen = config.webserver.listenip;
+			if(config.webserver.ssl == true){
+				server = https.createServer(ssl, app).listen(workerData.port, config.webserver.listenip,ready);
+			}else{
+				server = http.createServer(app).listen(workerData.port, config.webserver.listenip,ready);
+			}
+			
+			// these are all infinity so its reasonable to have a ton of = things
+			server.maxConnections = http.globalAgent.maxSockets = https.globalAgent.maxSockets = Infinity
+			require('./ws.js')(server);
+			
+			workerData.bad_useragents_regex = eval(workerData.bad_useragents_regex);
+			
+		
+			
+			break
 		case'update_session':
 			sessions = data.sessions;
-			break
-		default:
-			
 			break
 	}
 });
 
 app.use(cookieParser());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+
 app.use(compression({ level: 2 }));
 
-// start up server stuff
-listen = config.webserver.listenip;
-if(config.webserver.ssl==true)server = https.createServer(ssl,app).listen(workerData.port, config.webserver.listenip,ready);
-else server = http.createServer(app).listen(workerData.port, config.webserver.listenip,ready);
-
-// these are all infinity so its reasonable to have a ton of = things
-server.maxConnections = http.globalAgent.maxSockets = https.globalAgent.maxSockets = Infinity
-
-require('./ws.js')(server);
+app.use((req, res, next)=>{
+	// nice bodyparser alternative that wont cough up errors
+	
+	if(req.method == 'POST'){ // get the req.body stuff on post requests
+		req.setEncoding('utf8');
+		req.raw_body = ''
+		req.body = {}
+		
+		req.on('data', chunk=>{ req.raw_body += chunk });
+		
+		req.on('end', ()=>{
+			req.str_body = req.raw_body.toString('utf8');
+			
+			try{
+				var result = new Object();
+				
+				req.str_body.split('&').forEach((pair)=>{
+					pair = pair.split('=');
+					req.body[pair[0]] = decodeURIComponent(pair[1] || '');
+				});
+			}catch(err){
+				req.body = {}
+			}
+			
+			return next();
+		});
+	}else return next();
+});
 
 app.use((req,res,next)=>{
 	// hacky implementation of session stuff
 	// this will add request.session ( a proxy thing acting as an object so it can see whats being added to push to the centeral script )
 	
-	var url_proto = (config.webserver.ssl == true ? 'https' : 'http');
+	var tmp_data = {
+			url_proto: req.get('x-forwarded-proto') || req.protocol
+		}
 	
 	// repl.it support for its proxypass usage on nodejs apps
-	if(process.env.REPL_OWNER != null)url_proto = 'https' 
+	if(process.env.REPL_OWNER != null)tmp_data.url_proto = 'https' 
 	
-	req.fullURL = new URL(url_proto + '://' + req.get('host') + req.originalUrl);
+	req.fullURL = new URL(tmp_data.url_proto + '://' + req.get('host') + req.originalUrl);
 	
-	var sid = req.cookies['pm-connect.sid'],
-		cookie = { maxAge: 900000, httpOnly: true/*, domain: req.fullURL.host.match(/\..{2,3}(?:\.?.{2,3}).*?$/gim)*/, secure: true, sameSite: 'Lax' };
+	tmp_data.sid = req.cookies['pm_connect.sid']
+	tmp_data.cookie = { maxAge: 900000, httpOnly: true/*, domain: req.fullURL.host.match(/\..{2,3}(?:\.?.{2,3}).*?$/gim)*/, secure: true, sameSite: 'Lax' }
 	
 	/* note: remove the domain: blah stuff when testing on an insecure, rather https:// with that yellow lock icon thing on firefox showing up, makes the sid go out of control */
 	
-	if(typeof sid == 'undefined' || sid.length <= 7){
+	if(typeof tmp_data.sid == 'undefined' || tmp_data.sid.length <= 7){
 		while(true){
-			sid=crypto.randomBytes(32).toString('hex');
-			if(sessions[sid] != null)continue;
+			tmp_data.sid = crypto.randomBytes(32).toString('hex');
+			if(sessions[tmp_data.sid] != null)continue;
 			break;
 		}
 	}
 	
-	res.cookie('pm-connect.sid', sid, cookie);
+	res.cookie('pm_connect.sid', tmp_data.sid, tmp_data.cookie);
 	
-	res.cookie('pm-server', os.hostname().substr(0,4).toLowerCase(), cookie);
+	if(sessions[tmp_data.sid] == null)sessions[tmp_data.sid] = new Object
 	
-	if(sessions[sid] == null)sessions[sid]={}
+	sessions[tmp_data.sid].__lastAccess = Date.now();
+	sessions[tmp_data.sid].sid = tmp_data.sid;
+	sessions[tmp_data.sid].cookie = tmp_data.cookie;
 	
-	sessions[sid].__lastAccess = Date.now();
-	sessions[sid].sid = sid;
-	sessions[sid].cookie = cookie;
-	
-	req.session = new Proxy(sessions[sid], {
+	req.session = new Proxy(sessions[tmp_data.sid], {
 		set: (target, prop, value)=>{
 			Reflect.set(target, prop, value);
-			threads.parentPort.postMessage({type:'store_set', sid: target.sid, session: target });
+			process.send({ type: 'store_set', sid: target.sid, session: target });
 		}
 	});
 	
+	delete tmp_data
 	return next();
 });
 
@@ -196,34 +227,31 @@ app.get('/pm-cgi/',(req,res)=>{
 });
 
 app.get('/uptime',(req,res,next)=>{
-	var uptimeMS = process.uptime()
-	
 	// process.uptime() gives the amount of seconds
 	
 	res.status(200);
 	res.contentType('text/html');
-	res.send(uptimeMS.toString());
+	res.send(process.uptime().toString());
 });
 
 app.get('/suggestions',(req,res)=>{ // autocomplete urls
-	if(typeof req.query.input != 'string' || req.query.input == '')return genMsg(req,res,400,'Invalid domain input/type');
-	var suggestions=[],input=req.query.input,index=0,tldCheck='',sortedList={},matched=input.match(/\..{2,3}(?:\.?.{2,3})?/gim);
+	if(typeof req.query.input != 'string' || req.query.input == '')return genMsg(req, res, 400, 'Invalid domain input');
+	var suggestions=[], index=0, tldCheck, sorted_list = new Object(), matched = req.query.input.match(/\..{2,3}(?:\.?.{2,3})?/gim);
 	
-	res.status(200);res.contentType('application/json');
+	res.status(200);
+	res.contentType('application/json');
 	
-	if(matched===null || matched==='')return res.send(JSON.stringify(['com','net','org','io','dev'])); else tldCheck=matched[0].substr(1);
+	if(matched == null || matched[0] == null)return res.send(JSON.stringify(['com','net','org','io','dev']))
+	else tldCheck = matched[0].substr(1);
 	
-	workerData.tldList.forEach((e,i)=> sortedList[similar(tldCheck,e)] = e);
+	workerData.tldList.forEach((e,i)=> sorted_list[similar(tldCheck,e)] = e);
 	
-	var bruvList=Object.entries(sortedList).sort(((a,b)=>{
-			return a[0] - b[0];
-	})).reverse();
-	
-	bruvList.forEach((e,i)=>{
-		if(index>5)return;
+	Object.entries(sorted_list).sort(((a,b)=>{ return a[0] - b[0] })).reverse().forEach((e,i)=>{
+		if(index > 5)return;
 		index++;
 		suggestions.push(e[1]);
 	});
+	
 	return res.send(JSON.stringify(suggestions));
 });
 
@@ -234,17 +262,17 @@ app.get('/linkGen',(req,res,next)=>{
 	return res.send(file);
 });
 
-var urlData=JSON.parse(fs.readFileSync('urlData.json','utf8')),
+var urlData=JSON.parse(fs.readFileSync('url-data.json','utf8')),
 	writeURLs=(()=>{
-		var perhaps=JSON.parse(fs.readFileSync('urlData.json','utf8'));
+		var perhaps=JSON.parse(fs.readFileSync('url-data.json','utf8'));
 		if(urlData == perhaps)return false; // the url data hasnt changed
 		// if the above hasnt done a thing then code continues
-		fs.writeFileSync('urlData.json',JSON.stringify(urlData, null, '\t'),'utf-8');
+		fs.writeFileSync('url-data.json',JSON.stringify(urlData, null, '\t'),'utf-8');
 		// data success
 	}),
 	reloadURLs=(()=>{
 		// we read file stuff now
-		var perhaps=JSON.parse(fs.readFileSync('urlData.json','utf8'));
+		var perhaps=JSON.parse(fs.readFileSync('url-data.json','utf8'));
 		if(urlData != perhaps)urlData=perhaps;
 	}),
 	urlExpire=10800000;
@@ -259,7 +287,7 @@ app.post('/alias',(req,res,next)=>{
 	}catch(err){
 		res.status(400);
 		res.contentType('text/html');
-		return res.send(msgPage.replace('%TITLE%',err.code).replace('%REASON%',err.message));
+		return res.send(message_page.replace('%TITLE%',err.code).replace('%REASON%',err.message));
 	}
 	
 	url=addproto(url); // this is done on the client too for checking but is needed here
@@ -275,15 +303,15 @@ app.post('/alias',(req,res,next)=>{
 	if(config.directIPs==false && url.match(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi)){
 		res.status(400);
 		res.contentType('text/html');
-		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','Aliases pointing to an IP address are not permitted'));
+		return res.send(message_page.replace('%TITLE%','Bad URL').replace('%REASON%','Aliases pointing to an IP address are not permitted'));
 	}else if(typeof url != 'string'){
 		res.status(400);
 		res.contentType('text/html');
-		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','The URL specified is not a valid string'));
+		return res.send(message_page.replace('%TITLE%','Bad URL').replace('%REASON%','The URL specified is not a valid string'));
 	}else if(!url.match(workerData.tldRegex)){
 		res.status(400);
 		res.contentType('text/html');
-		return res.send(page.replace('%TITLE%','Bad URL').replace('%REASON%','The URL specified was not a valid URL'));
+		return res.send(message_page.replace('%TITLE%','Bad URL').replace('%REASON%','The URL specified was not a valid URL'));
 	}
 	
 	if(alias == '' || alias.length <= 4 || urlData.some(e=> e.alias.startsWith(alias) || alias.startsWith(e.alias) ) ){
@@ -303,14 +331,14 @@ app.post('/alias',(req,res,next)=>{
 	res.contentType('text/html');
 	
 	if(sideNote != '')sideNote=`<div class='lbottom'><span id='logMsg'>`+sideNote+`</span></div>`;
-	return res.send(msgPage.replace('%TITLE%','Success').replace('%REASON%',`
+	return res.send(message_page.replace('%TITLE%','Success').replace('%REASON%',`
 	<a href="./${req.fullURL.origin}/alias/${alias}"><span>${req.fullURL.origin}/alias/${alias}</span></a> now points to <a href="./${addproto(url)}"><span>${addproto(url)}</span></a>
 	${sideNote}
 	`));
 });
 
 app.use((req,res,next)=>{
-	if( !req.url.startsWith('/prox') ||  (req.method=='POST' && !req.body.url) || (req.method=='GET' && !req.query.url) )return next();
+	if( !req.url.startsWith('/prox') ||  (req.method == 'POST' && !req.body.url) || (req.method == 'GET' && !req.query.url) )return next();
 	
 	var url = addproto((req.method == 'GET' ? req.query.url : req.body.url));
 	
@@ -326,13 +354,12 @@ app.use((req,res,next)=>{
 });
 
 app.use((req,res,next)=>{
-	if(req.fullURL.pathname != '/rpm' || (req.method=='POST' && !req.body.url) || (req.method=='GET' && !req.query.url) )return next();
+	if(req.fullURL.pathname != '/rpm' || (req.method == 'POST' && !req.body.url) || (req.method == 'GET' && !req.query.url))return next();
 	
 	var url = addproto((req.method == 'GET' ? req.query.url : req.body.url));
 	
 	req.session.pm_session = true
-	
-	req.session.pm_session_url = url;
+	req.session.pm_session_url = url
 	
 	res.redirect('/ses/');
 	
@@ -343,12 +370,16 @@ app.use(async (req,res,next)=>{
 	if(req.query.ws != undefined)return next(); // noo websocket script did not handle 
 	
 	if(req.query.pm_url == null && (req.fullURL.pathname == '/' || req.fullURL.pathname.match(/^\/pm-cgi.*/) || req.fullURL.pathname == '/favicon.ico'))return next()
-	else if(req.fullURL.pathname == '/sesUrl')return res.sendFile(path.join(__dirname + '/public/session.html'))
+	else if(req.fullURL.pathname == '/sesUrl')return res.sendFile(path.join(__dirname, '/public/session.html'))
 	else if(req.fullURL.pathname == '/clrSes'){
 		req.session.expires = Date.now(); // set it so this session expires quicklyy
-		return res.send(msgPage.replace('%TITLE%','Session data cleared').replace('%REASON%', 'All was done with success' ));
+		return res.send(message_page.replace('%TITLE%','Session data cleared').replace('%REASON%', 'All was done with success' ));
 	}else if(req.fullURL.pathname.match(/^\/{3}/gi)){ //, //domain.tld => https://domain.tld
 		return res.redirect(302, req.fullURL.pathname.replace(/^\/{3}/gi, '/https://') )
+	
+	}else if(workerData.bad_useragents_regex.test(req.get('user-agent'))){ // request is most likely from a bot
+		genMsg(req, res, 403, 'bad bot!');
+		return data.clearVariables();
 	}
 	
 	var data = {
@@ -485,7 +516,8 @@ app.use(async (req,res,next)=>{
 	if(req.session.pm_session != true && req.no_proxy != true && !alias_mode && poggerUrl != url.href && !req.query.pm_url)return res.redirect(307,'/'+url.href);
 	
 	// handle post body:
-	if(req.method == 'POST')data.fetch_options['body'] = JSON.stringify(req.body, (key, value)=>{ return value} );
+	
+	if(req.method == 'POST')data.fetch_options['body'] = req.str_body
 	
 	// handle request headers
 	Object.entries(req.headers).forEach((e,i,a)=>{
@@ -649,7 +681,7 @@ app.use(async (req,res,next)=>{
 				alias_mode: alias_mode,
 				alias_url: alias_set,
 				windowURL_date: fs.statSync('./public/pm-cgi/windowURL.js').mtimeMs,
-				inject_date: fs.statSync('./public/pm-cgi/preload.js').mtimeMs,
+				inject_date: fs.statSync('./public/pm-cgi/inject.js').mtimeMs,
 				
 			}
 			
@@ -728,7 +760,7 @@ app.use(async (req,res,next)=>{
 			
 			if(typeof req.query.debug == 'string' && req.query.debug == 'true')data.sendData=data.sendData.replace(/<\/body>/gi,`
 			<!-- [POWERMOUSE STATS]
-			Worker: ${threads.threadId}
+			Worker PID: ${process.pid}
 			Port: ${workerData.port}
 			Host: ${os.hostname()}
 			--></body>`.replace(/\t/g, ''));

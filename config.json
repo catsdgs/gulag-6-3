@@ -1,8 +1,8 @@
 {
 	"webserver": {
 		"listenip": "0.0.0.0",
-		"port": 80,
-		"ssl": false
+		"port": 7080,
+		"ssl": true
 	},
 	"proxy": {
 		"private_ips": false,
@@ -13,11 +13,11 @@
 		}
 	},
 	"workers": {
-		"count": 1,
-		"max_errors": 12
-	},
-	"cache": {
 		"enabled": false,
-		"dir": "cache"
+		"max_errors": 12,
+		"manual_amount": {
+			"enabled": false,
+			"count": 1
+		}
 	}
 }
