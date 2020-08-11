@@ -24,6 +24,8 @@
 		"express": "^4.17.1",
 		"html-minifier": "^4.0.0",
 		"https": "^1.0.0",
+		"imagemin-mozjpeg": "^9.0.0",
+		"imagemin-webp": "^6.0.0",
 		"mime": "^2.4.5",
 		"node-fetch": "^2.6.0",
 		"serverline": "^1.5.0",
