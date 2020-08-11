@@ -19,7 +19,7 @@ Run in a terminal:
 ```
 git clone https://github.com/vibedivide/powermouse ./powermouse/ && cd ./powermouse/ && npm i && npm start
 ```
-then visit http://localhost:80 in your browser if no errors occured
+then the URL http://localhost:80 will be available in your browser if all went as intended
 
 1. clone repository
 2. cd into repository
