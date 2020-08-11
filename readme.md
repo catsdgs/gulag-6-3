@@ -16,7 +16,9 @@ deploying on glitch.me will probably fail and cough up errors then eventually de
 ## Quick start guide:
 
 Run in a terminal:
-`git clone https://github.com/vibedivide/powermouse ./powermouse/ && cd ./powermouse/ && npm i && npm start`
+```
+git clone https://github.com/vibedivide/powermouse ./powermouse/ && cd ./powermouse/ && npm i && npm start
+```
 then visit http://localhost:80 in your browser if no errors occured
 
 1. clone repository
