@@ -261,18 +261,18 @@ var state_proxifyURL = (url)=>{
 	
 	if(data.alias_mode){
 		// url starts with /, replace with alias stuff
-		if(url.match(/^\/(?!\/|alias\/)/gi))url = location.origin + '/' + data.alias_url + '/' + url
+		if(url.match(/^\/(?!\/|https?:\/\/|alias\/)/gi))url = location.origin + '/' + data.alias_url + '/' + url
 		
 		url = url.replace(pm_url.origin, '/' + data.alias_url + '/')
 	}else if(data.pm_session == true){
 		// url starts with /, replace with /ses/
-		if(url.match(/^\/(?!\/)/gi))url = location.origin + '/ses/' + url
+		if(url.match(/^\/(?!\/|https?:\/\/)/gi))url = location.origin + '/ses/' + url
 		
 		url = url.replace(pm_url.origin, '/ses/')
 		
 	}else{
 		// url starts with /
-		if(url.match(/^\/(?!\/)/gi))url = location.origin + '/' + pm_url.origin + url
+		if(url.match(/^\/(?!\/|https?:\/\/)/gi))url = location.origin + '/' + pm_url.origin + url
 	}
 	
 	return url
