@@ -149,7 +149,12 @@ app.use((req,res,next)=>{
 	// hacky implementation of session stuff
 	// this will add request.session ( a proxy thing acting as an object so it can see whats being added to push to the centeral script )
 	
-	req.fullURL = new URL((config.webserver.ssl == true ? 'https://' : 'http://') + req.get('host') + req.originalUrl);
+	var url_proto = (config.webserver.ssl == true ? 'https' : 'http');
+	
+	// repl.it support for its proxypass usage on nodejs apps
+	if(process.env.REPL_OWNER != null)url_proto = 'https' 
+	
+	req.fullURL = new URL(url_proto + '://' + req.get('host') + req.originalUrl);
 	
 	var sid = req.cookies['pm-connect.sid'],
 		cookie = { maxAge: 900000, httpOnly: true/*, domain: req.fullURL.host.match(/\..{2,3}(?:\.?.{2,3}).*?$/gim)*/, secure: true, sameSite: 'Lax' };
