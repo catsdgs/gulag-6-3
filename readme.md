@@ -121,8 +121,9 @@ mv default.key ssl/default.key
 ### Port Changing
 To change the port your instance is running on, in config.json there is a value named port and you can set it to what you need (http: 80, most nodejs apps: 8080, https: 443). If you wish to listen externally and not on localhost, change listenip to 0.0.0.0
 
-![installation](https://sys32.dev/assets/src/media/media1.png?)
-![proxied google](https://sys32.dev/assets/src/media/media2.png?)
-![proxied discord](https://sys32.dev/assets/src/media/media3.png?)
+![terminal](https://sys32.dev/assets/src/pm-media/terminal.png)
+![homepage](https://sys32.dev/assets/src/pm-media/homepage.png)
+![coolmath](https://sys32.dev/assets/src/pm-media/coolmath.png)
+![discord](https://sys32.dev/assets/src/pm-media/discord.png)
 
 Licensed under [GNU General Public License v3.0](LICENSE)
