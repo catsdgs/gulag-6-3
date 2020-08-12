@@ -195,9 +195,6 @@ app.use((req,res,next)=>{
 			url_proto: req.get('x-forwarded-proto') || req.protocol
 		}
 	
-	// repl.it support for its proxypass usage on nodejs apps
-	if(process.env.REPL_OWNER != null)tmp_data.url_proto = 'https' 
-	
 	req.fullURL = new URL(tmp_data.url_proto + '://' + req.get('host') + req.originalUrl);
 	
 	tmp_data.sid = req.cookies['pm_connect.sid']

@@ -82,7 +82,7 @@ var workers = {
 		});
 		
 		worker.on('exit', (code) => {
-			if(code !=0 ){
+			if(code != 0 && code != null){
 				console.log('Worker stopped with exit code ' + code);
 				
 				workers.errors++
@@ -190,7 +190,7 @@ rl.on('line', (line)=>{
 			workers.online = 0
 			
 			workers.instances.forEach( (worker, index)=>{
-				if(worker != null)process.kill(worker.process.pid);
+				if(worker != null)worker.kill('SIGTERM');
 				
 				makeWorker(index);
 			});
