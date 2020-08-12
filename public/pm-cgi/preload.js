@@ -95,7 +95,7 @@ Element.prototype.appendChild = function(){
 			var src = element.getAttribute('src');
 			
 			if(src != null){
-				if(!src.startsWith(location.origin) && src.match(/^(?!blob|javascript).*/gi))element.setAttribute('src', proxifyURL(src) );
+				if(!src.startsWith(location.origin) && src.match(/^(?!blob|javascript|data).*/gi))element.setAttribute('src', proxifyURL(src) );
 			}
 			
 			break
@@ -103,7 +103,7 @@ Element.prototype.appendChild = function(){
 			var href = element.getAttribute('href');
 			
 			if(href != null){
-				if(!href.startsWith(location.origin) && href.match(/^(?!blob|javascript).*/gi) )element.setAttribute('href', proxifyURL(href) );
+				if(!href.startsWith(location.origin) && href.match(/^(?!blob|javascript|data).*/gi) )element.setAttribute('href', proxifyURL(href) );
 			}
 			
 			break

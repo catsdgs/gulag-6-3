@@ -111,10 +111,22 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 	},
 	proxyAgent = (config.proxy.vpn.enabled == true ? new socksProxyAgent('socks5://' + config.proxy.vpn.socks5) : null)
 	sessions = new Object(),
-	workerData = new Object();
+	workerData = new Object(),
+	v8_memory = process.memoryUsage().heapTotal; // TEMPORARY VALUE, WILL BE SET BY WORKER MESSAGE
 
 process.on('message',(data)=>{
 	switch(data.type){
+		case'v8_memory':
+			v8_memory = data.value
+			
+			break
+		case'memoryUsage':
+			process.send({
+				type: 'memoryUsage',
+				memoryUsage: process.memoryUsage(),
+			});
+			
+			break
 		case'workerData':
 			
 			workerData = data
@@ -226,12 +238,20 @@ app.get('/pm-cgi/',(req,res)=>{
 	// this is a static stuff directory so redirect out of it for ease 
 });
 
-app.get('/uptime',(req,res,next)=>{
+app.get('/uptime', (req, res, next)=>{
 	// process.uptime() gives the amount of seconds
 	
 	res.status(200);
 	res.contentType('text/html');
 	res.send(process.uptime().toString());
+});
+
+app.get('/memory', (req, res, next)=>{
+	// v8_memory / 1e+9 to get total memory in gb
+	
+	res.status(200);
+	res.contentType('text/html');
+	res.send(v8_memory.toString());
 });
 
 app.get('/suggestions',(req,res)=>{ // autocomplete urls
@@ -672,6 +692,12 @@ app.use(async (req,res,next)=>{
 		.replace(new RegExp(workerData.ip, 'gi'), randomIP())
 		.replace(new RegExp(btoa(workerData.ip), 'gi'), randomIP())
 		;
+		
+		if(url.href == 'https://www.gstatic.com/recaptcha/releases/IU7gZ7o6RDdDE6U4Y1YJJWnN/recaptcha__en.js'){
+			data.sendData = data.sendData
+			.replace(/(window\.)?location/gi, 'pm_url')
+			;
+		}
 		
 		if(data.contentType.startsWith('text/html')){
 			var preload_script_data = {
