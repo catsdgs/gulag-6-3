@@ -44,7 +44,6 @@ window.addEventListener('load', async()=>{
 	
 	ping_element.innerHTML = Date.now() - stats.start_time + ' ms'
 	uptime_element.innerHTML = getTimeStr(stats.uptime * 1000 + (Date.now() - uptime_init));
-	memory_element.innerHTML = (stats.memory / 1e+9).toString().substr(0, 5) + ' GB in use'
 	
 	setInterval(async ()=>{
 		stats = await window.fetch('stats').then(e => e.json());

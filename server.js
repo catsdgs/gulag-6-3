@@ -352,7 +352,7 @@ app.use((req,res,next)=>{
 app.use(async (req,res,next)=>{
 	if(req.query.ws != undefined)return next(); // noo websocket script did not handle 
 	
-	if(fs.existsSync(path.join(public_dir, req.fullURL.pathname)) )return next()
+	if(req.query.pm_url == null && fs.existsSync(path.join(public_dir, req.fullURL.pathname)) )return next()
 	else if(req.fullURL.pathname == '/clrSes'){
 		req.session.expires = Date.now(); // set it so this session expires quicklyy
 		return res.send(message_page.replace('%TITLE%','Session data cleared').replace('%REASON%', 'All was done with success' ));
