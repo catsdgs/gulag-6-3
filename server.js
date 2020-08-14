@@ -313,7 +313,7 @@ app.post('/alias',(req,res,next)=>{
 	res.status(200);
 	res.contentType('text/html');
 	
-	if(sideNote != '')sideNote=`<div class='lbottom'><span id='logMsg'>`+sideNote+`</span></div>`;
+	if(sideNote != '')sideNote=`<div class='lbottom'><span class='logMsg'>`+sideNote+`</span></div>`;
 	return res.send(message_page.replace('%TITLE%','Success').replace('%REASON%',`
 	<a href="./${req.fullURL.origin}/alias/${alias}"><span>${req.fullURL.origin}/alias/${alias}</span></a> now points to <a href="./${addproto(url)}"><span>${addproto(url)}</span></a>
 	${sideNote}
