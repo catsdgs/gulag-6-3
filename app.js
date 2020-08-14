@@ -124,32 +124,6 @@ setInterval(()=>{
 	});
 }, 5000);
 
-setInterval(async ()=>{
-	var v8_memory = await new Promise((resolve, reject)=>{
-			var v8_memory = done = 0;
-			
-			workers.instances.forEach(worker=>{
-				if(worker == null || !worker.isConnected())return;
-				
-				var callback = (data)=>{
-						if(data.type = 'memoryUsage' && data.memoryUsage != undefined)v8_memory += data.memoryUsage.heapTotal
-						done++
-						
-						if(done == workers.instances.length)resolve(v8_memory);
-						
-						worker.off('message', callback);
-					}
-				
-				worker.send({type: 'memoryUsage'});
-				
-				worker.on('message', callback);
-			});
-		});
-	
-	workers.broadcast({ type: 'v8_memory', value: v8_memory });
-	
-}, 1000);
-
 require('./url-manager.js');
 
 (async()=>{

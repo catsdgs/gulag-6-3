@@ -112,22 +112,10 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 	},
 	proxyAgent = (config.proxy.vpn.enabled == true ? new socksProxyAgent('socks5://' + config.proxy.vpn.socks5) : null)
 	sessions = new Object(),
-	workerData = new Object(),
-	v8_memory = process.memoryUsage().heapTotal; // TEMPORARY VALUE, WILL BE SET BY WORKER MESSAGE
+	workerData = new Object();
 
 process.on('message',(data)=>{
 	switch(data.type){
-		case'v8_memory':
-			v8_memory = data.value
-			
-			break
-		case'memoryUsage':
-			process.send({
-				type: 'memoryUsage',
-				memoryUsage: process.memoryUsage(),
-			});
-			
-			break
 		case'workerData':
 			
 			workerData = data
@@ -233,7 +221,7 @@ app.use((req,res,next)=>{
 app.get('/stats', (req, res, next)=>{
 	res.status(200);
 	res.contentType('application/json');
-	res.send(JSON.stringify({ start_time: req.start, uptime: process.uptime().toString(), memory: v8_memory.toString() }))
+	res.send(JSON.stringify({ start_time: req.start, uptime: process.uptime().toString() }))
 });
 
 app.get('/suggestions',(req,res)=>{ // autocomplete urls

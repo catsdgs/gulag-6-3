@@ -38,8 +38,7 @@ window.addEventListener('load', async()=>{
 	var stats = await window.fetch('stats').then(e => e.json()),
 		ping_element = document.querySelector('#ping'),
 		uptime_value = stats.uptime, uptime_init = Date.now(), // keep these static
-		uptime_element = document.querySelector('#uptime'),
-		memory_element = document.querySelector('#memory');
+		uptime_element = document.querySelector('#uptime');
 	
 	// set this before the interval as the interval doesnt start instantly
 	
@@ -50,7 +49,6 @@ window.addEventListener('load', async()=>{
 	setInterval(async ()=>{
 		stats = await window.fetch('stats').then(e => e.json());
 		ping_element.innerHTML = Date.now() - stats.start_time + ' ms'
-		memory_element.innerHTML = (stats.memory / 1e+9).toString().substr(0, 5) + ' GB in use'
 	}, 1000);
 	
 	setInterval(()=>{

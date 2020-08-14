@@ -259,18 +259,6 @@ a p:hover:active, a span:active, #tempURL:active {
 	position: absolute;
 }
 
-#logMsg {
-	text-align: center;
-	font-size: 18px;
-	font-family: 'Source Sans Pro', sans-serif;
-	color: #F67;
-	text-shadow: 1px 1px 5px rgba(0,0,0,.5);
-	font-weight: 700;
-	position: absolute;
-	left: 10px;
-	bottom: 10px;
-}
-
 .top-to-bottom {
 	display: flex;
 	flex-direction: column;
@@ -368,7 +356,7 @@ a p:hover:active, a span:active, #tempURL:active {
 	left: 0;
 	right: 0;
 	font-size: 18px;
-	bottom: 95px;
+	bottom: 75px;
 	height: 75px;
 	font-size: 18px;
 }
