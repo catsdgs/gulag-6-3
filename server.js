@@ -23,6 +23,7 @@ const fs = require('fs'),
 		webp: require('imagemin-webp'),
 	};
 var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
+	public_dir = path.join(__dirname, 'public'),
 	args = process.argv.splice(2),
 	ssl = {key: fs.readFileSync('ssl/default.key','utf8'), cert: fs.readFileSync('ssl/default.crt','utf8')},
 	message_page = fs.readFileSync(path.join(__dirname, '/public/error.html') ,'utf8'),
@@ -47,7 +48,7 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 				return res.send(message_page.replace('%TITLE%','Bad domain').replace('%REASON%', (value || `Cannot ${method} ${url}`) ));
 				break
 			case 697:
-				res.status(500)
+				res.status(400)
 				return res.send(message_page.replace('%TITLE%',value.code).replace('%REASON%', value.message ));
 				break
 			case 400:
@@ -143,9 +144,7 @@ process.on('message',(data)=>{
 			server.maxConnections = http.globalAgent.maxSockets = https.globalAgent.maxSockets = Infinity
 			require('./ws.js')(server);
 			
-			workerData.bad_useragents_regex = eval(workerData.bad_useragents_regex);
-			
-		
+			workerData.banned_ua = eval(workerData.banned_ua);
 			
 			break
 		case'update_session':
@@ -160,6 +159,8 @@ app.use(compression({ level: 2 }));
 
 app.use((req, res, next)=>{
 	// nice bodyparser alternative that wont cough up errors
+	
+	req.start = Date.now();
 	
 	if(req.method == 'POST'){ // get the req.body stuff on post requests
 		req.setEncoding('utf8');
@@ -229,26 +230,10 @@ app.use((req,res,next)=>{
 	return next();
 });
 
-app.get('/pm-cgi/',(req,res)=>{
-	return res.redirect('/');
-	
-	// this is a static stuff directory so redirect out of it for ease 
-});
-
-app.get('/uptime', (req, res, next)=>{
-	// process.uptime() gives the amount of seconds
-	
+app.get('/stats', (req, res, next)=>{
 	res.status(200);
-	res.contentType('text/html');
-	res.send(process.uptime().toString());
-});
-
-app.get('/memory', (req, res, next)=>{
-	// v8_memory / 1e+9 to get total memory in gb
-	
-	res.status(200);
-	res.contentType('text/html');
-	res.send(v8_memory.toString());
+	res.contentType('application/json');
+	res.send(JSON.stringify({ start_time: req.start, uptime: process.uptime().toString(), memory: v8_memory.toString() }))
 });
 
 app.get('/suggestions',(req,res)=>{ // autocomplete urls
@@ -270,13 +255,6 @@ app.get('/suggestions',(req,res)=>{ // autocomplete urls
 	});
 	
 	return res.send(JSON.stringify(suggestions));
-});
-
-app.get('/linkGen',(req,res,next)=>{
-	var file=fs.readFileSync(path.join(__dirname, 'public/linkGen.html'));
-	res.status(200);
-	res.contentType('text/html');
-	return res.send(file);
 });
 
 var urlData=JSON.parse(fs.readFileSync('url-data.json','utf8')),
@@ -386,17 +364,15 @@ app.use((req,res,next)=>{
 app.use(async (req,res,next)=>{
 	if(req.query.ws != undefined)return next(); // noo websocket script did not handle 
 	
-	if(req.query.pm_url == null && (req.fullURL.pathname == '/' || req.fullURL.pathname.match(/^\/pm-cgi.*/) || req.fullURL.pathname == '/favicon.ico'))return next()
-	else if(req.fullURL.pathname == '/sesUrl')return res.sendFile(path.join(__dirname, '/public/session.html'))
+	if(fs.existsSync(path.join(public_dir, req.fullURL.pathname)) )return next()
 	else if(req.fullURL.pathname == '/clrSes'){
 		req.session.expires = Date.now(); // set it so this session expires quicklyy
 		return res.send(message_page.replace('%TITLE%','Session data cleared').replace('%REASON%', 'All was done with success' ));
 	}else if(req.fullURL.pathname.match(/^\/{3}/gi)){ //, //domain.tld => https://domain.tld
 		return res.redirect(302, req.fullURL.pathname.replace(/^\/{3}/gi, '/https://') )
 	
-	}else if(workerData.bad_useragents_regex.test(req.get('user-agent'))){ // request is most likely from a bot
-		genMsg(req, res, 403, 'bad bot!');
-		return data.clearVariables();
+	}else if(workerData.banned_ua.test(req.get('user-agent'))){ // request is most likely from a bot
+		return genMsg(req, res, 403, 'bad bot!');
 	}
 	
 	var data = {
@@ -497,7 +473,7 @@ app.use(async (req,res,next)=>{
 		}
 	}
 	
-	if(url.href == 'https://discordapp.com/api/v6/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login option to access discord' }));
+	if(url.href == 'https://discordapp.com/api/v8/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login option to access discord' }));
 	
 	
 	if(url.hostname == 'discord.com' && (url.pathname == '/new' || url.pathname == '/')){
@@ -550,8 +526,7 @@ app.use(async (req,res,next)=>{
 		}
 	});
 	
-	data.fetch_headers['referer'] = url.href
-	data.fetch_headers['origin'] = url.origin
+	data.fetch_headers['referrer'] = data.fetch_headers['referer'] = url.href
 	
 	data.fetch_options['headers'] = data.fetch_headers;
 	
@@ -571,14 +546,14 @@ app.use(async (req,res,next)=>{
 				break
 			default:
 				
-				return genMsg(req,res,697,err);
+				return genMsg(req, res, 697,err);
 				
 				break
 		}
 		
 	});
 	
-	if(req.msgShown)return;
+	if(req == null || req.msgShown)return;
 	
 	if(req.session.pm_session != true && data.response != undefined && data.response.redirected == true){ // redirect has happened at least once
 		return res.redirect(307, '/' + data.response.url);
@@ -667,6 +642,8 @@ app.use(async (req,res,next)=>{
 		// .replace(/(?<!window\.)document/gi, 'pm_document')
 		
 		.replace(new RegExp('(:\s*?url\\((?:"|\')?)(?!data:|' + regexFullOrigin + ')([\\s\\S]*?)((?:"|\')?\\))', 'gi'), (match, p1, p2, p3, offset, string)=>{
+			var output = ''
+			
 			if(typeof req.session.ref != 'undefined'){
 				uorigin = new URL(req.session.ref).origin;
 			}else{
@@ -681,7 +658,10 @@ app.use(async (req,res,next)=>{
 				p2 = uorigin + p2
 			}
 			
-			return p1 + req.fullURL.origin + '/?pm_url=' + btoa(p2) + p3
+			if(p2.match(/(?:ttf|woff2?|otf|eot)$/gi))output = p1 + req.fullURL.origin + '/' + p2 + p3
+			else output = p1 + req.fullURL.origin + '/?pm_url=' + btoa(p2) + p3
+			
+			return output
 		})
 		;
 		
@@ -808,4 +788,4 @@ app.use(async (req,res,next)=>{
 	return data.clearVariables();
 });
 
-app.use('/', express.static(path.join(__dirname, 'public')));
+app.use('/', express.static(public_dir));

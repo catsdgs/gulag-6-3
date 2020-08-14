@@ -1,8 +1,8 @@
 {
 	"webserver": {
 		"listenip": "0.0.0.0",
-		"port": 8080,
-		"ssl": false
+		"port": 7080,
+		"ssl": true
 	},
 	"proxy": {
 		"private_ips": false,
@@ -16,8 +16,8 @@
 		"enabled": true,
 		"max_errors": 12,
 		"manual_amount": {
-			"enabled": false,
-			"count": 1
+			"enabled": true,
+			"count": 6
 		}
 	}
 }

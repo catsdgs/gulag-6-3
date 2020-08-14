@@ -14,10 +14,7 @@ body {
 	color: white;
 	font-family: 'Montserrat', sans-serif;
 	font-weight: 500;
-}
-body > .wrapper {
-	position: relative;
-	display: block;
+	
 	width: 96%;
 	margin: auto;
 }
@@ -371,7 +368,7 @@ a p:hover:active, a span:active, #tempURL:active {
 	left: 0;
 	right: 0;
 	font-size: 18px;
-	bottom: 70px;
+	bottom: 95px;
 	height: 75px;
 	font-size: 18px;
 }

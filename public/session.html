@@ -2,39 +2,36 @@
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>Powermouse</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta name="description" content="Powerful web proxy">
 		<meta name="keywords" content="Unblocker, Powermouse, TitaniumNetwork">
 		<meta name="author" content="Divide">
-		<meta content='/pm-cgi/banner.png' property='og:image'>
+		<meta property='og:image' content='/pm-cgi/banner.png'>
 		<meta name='twitter:card' content='summary_large_image'>
 		<link type="image/x-icon" rel="shortcut icon" href='/favicon.ico'>
-		<title>Powermouse</title>
 		<link rel='stylesheet' href='/pm-cgi/main.css'>
-		<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 	</head>
 	<body>
-		<div class='wrapper'>
-			<div class='head'>
-				<h1><a class='noStyle ns' href='/'>powerMouse</a></h1>
-				<a draggable='false' href='https://github.com/titaniumnetwork-dev/powermouse'><div class='ns git'>Fork us on GitHub</div></a>
+		<div class='head'>
+			<h1><a class='noStyle ns' href='/'>powerMouse</a></h1>
+			<a draggable='false' href='https://github.com/vibedivide/powermouse'><div class='ns git'>Fork us on GitHub</div></a>
+		</div>
+		<div class='listing'>
+			<div class='inputWrapper'>
+				<form id='mainForm' action='rpm' method='POST'>
+					<div class='url_fill'>
+						<input name='url' class='form-text url' type='text' autocomplete='off' placeholder='https://www.bing.com/' required>
+					</div>
+					<button type='submit' class='btn btn-blu visit'>Go</button>
+				</form>
 			</div>
-			<div class='listing'>
-				<div class='inputWrapper'>
-					<form id='mainForm' action='rpm' method='POST'>
-						<div class='urlFill'>
-							<input name='url' class='form-text url' type='text' autocomplete='off' placeholder='https://www.bing.com/' required>
-						</div>
-						<button type='submit' class='btn btn-blu visit'>Go</button>
-					</form>
-				</div>
-				<div class='lbottom'>
-					<span id='logMsg'></span>
-				</div>
-				<div class='rbottom'>
-					<a href='./' id='tempURL'>Return home</a>
-					<a href='./clrSes' id='tempURL'>Clear session data</a>
-				</div>
+			<div class='lbottom'>
+				<span id='logMsg'></span>
+			</div>
+			<div class='rbottom'>
+				<a href='./' id='tempURL'>Return home</a>
+				<a href='./clrSes' id='tempURL'>Clear session data</a>
 			</div>
 		</div>
 		<script type='text/javascript' src='/pm-cgi/linkGen.js'></script>

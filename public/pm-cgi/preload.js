@@ -26,6 +26,7 @@ var emptyFunctionPreload = ()=>{},
 	pm_url = new URL(data.pm_url),
 	_windowfetch = window.fetch,
 	_xmlopen = XMLHttpRequest.prototype.open,
+	_worker = Worker
 	_websocket = WebSocket,
 	_websockets = [],
 	_replaceState = history.replaceState,
@@ -206,6 +207,22 @@ class WebSocketSpoof {
 	}
 }
 
+class WorkerSpoof {
+	constructor(){
+		var args = arguments,
+			aURL = new URL(args[0]),
+			options = args[1],
+			output = null;
+		
+		if(aURL.host != location.host && aURL.protocol.startsWith('http') )aURL = new URL(location.origin + '/' + aURL);
+		
+		output = new _worker(aURL, options);
+		
+		return output
+	}
+}
+
+Worker = WorkerSpoof
 WebSocket = WebSocketSpoof
 Image = ImageSpoof
 

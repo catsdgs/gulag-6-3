@@ -22,7 +22,7 @@ var fancyButtons = eval(atob('WwoJCVsnUmVkZGl0Jywnb2xkLnJlZGRpdC5jb20nLCdvcmFuZ2
 		return `${h} hours, ${m} minutes, ${s} seconds`
 	};
 
-fancyButtons.forEach((e,i)=>{
+fancyButtons.forEach(e=>{
 	var button = document.createElement('div');
 	buttons_container.appendChild(button); // apend to container
 	
@@ -34,25 +34,28 @@ fancyButtons.forEach((e,i)=>{
 	});
 });
 
-window.addEventListener('load',async()=>{
-	var uptime_element = document.querySelector('#uptime'),
-		uptime_start = await window.fetch('uptime').then(e => e.text()).then(e => Number(e)),
-		uptime_init = Date.now(),
-		memory_element = document.querySelector('#memory'),
-		memory_value = await window.fetch('memory').then(e => e.text());
+window.addEventListener('load', async()=>{
+	var stats = await window.fetch('stats').then(e => e.json()),
+		ping_element = document.querySelector('#ping'),
+		uptime_value = stats.uptime, uptime_init = Date.now(), // keep these static
+		uptime_element = document.querySelector('#uptime'),
+		memory_element = document.querySelector('#memory');
 	
-	uptime_element.innerHTML = getTimeStr(uptime_start * 1000 + (Date.now() - uptime_init));
+	// set this before the interval as the interval doesnt start instantly
 	
-	setInterval(()=>{
-		uptime_element.innerHTML = getTimeStr(uptime_start * 1000 + (Date.now() - uptime_init));
-	}, 250);
-	
-	memory_element.innerHTML = (memory_value / 1e+9).toString().substr(0, 5) + ' GB in use'
+	ping_element.innerHTML = Date.now() - stats.start_time + ' ms'
+	uptime_element.innerHTML = getTimeStr(stats.uptime * 1000 + (Date.now() - uptime_init));
+	memory_element.innerHTML = (stats.memory / 1e+9).toString().substr(0, 5) + ' GB in use'
 	
 	setInterval(async ()=>{
-		memory_value = await window.fetch('memory').then(e => e.text());
-		memory_element.innerHTML = (memory_value / 1e+9).toString().substr(0, 5) + ' GB in use'
-	}, 1500);
+		stats = await window.fetch('stats').then(e => e.json());
+		ping_element.innerHTML = Date.now() - stats.start_time + ' ms'
+		memory_element.innerHTML = (stats.memory / 1e+9).toString().substr(0, 5) + ' GB in use'
+	}, 1000);
+	
+	setInterval(()=>{
+		uptime_element.innerHTML = getTimeStr(uptime_value * 1000 + (Date.now() - uptime_init));
+	}, 100);
 });
 
 url_bar.addEventListener('blur', e=>{
@@ -63,9 +66,9 @@ url_bar.addEventListener('blur', e=>{
 	});
 });
 
-document.addEventListener('click', e=>{
-	prevActiveEle=activeElement
-	activeElement=e.target
+document.addEventListener('click', e=>{ // set the previous and active element as for the url selectors
+	prevActiveEle = activeElement
+	activeElement = e.target
 });
 
 url_bar.addEventListener('keyup', async e=>{
