@@ -128,13 +128,14 @@ require('./url-manager.js');
 	// we need the IP address to filter out on websites such as whatsmyip.org and other things
 	
 	workers.data.ip = await fetch('https://api.ipify.org/').then(res => res.text()).catch((err)=> ipv = '127.0.0.1' )
-	workers.data.tlds = /./g, tldList=[]
+	workers.data.tlds = /./g
+	workers.data.tldList = []
 	
 	var tldsv = await fetch('https://publicsuffix.org/list/effective_tld_names.dat').then(res => res.text()).catch((err)=> tldsv = '.com\n.org\n.net' );
 	
 	tldsv.split('\n').forEach((e,i,a)=>{
 		if(!e.match(/(?:\*|\/\/|\s|\.)/gi) && e.length>=1){
-			tldList.push(e);
+			workers.data.tldList.push(e);
 			workers.data.tlds += e.replace('.','\\.') + '|'
 		}
 	});
