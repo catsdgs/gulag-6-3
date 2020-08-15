@@ -210,13 +210,11 @@ class WebSocketSpoof {
 class WorkerSpoof {
 	constructor(){
 		var args = arguments,
-			aURL = new URL(args[0]),
+			aURL = args[0],
 			options = args[1],
 			output = null;
 		
-		if(aURL.host != location.host && aURL.protocol.startsWith('http') )aURL = new URL(location.origin + '/' + aURL);
-		
-		output = new _worker(aURL, options);
+		output = new _worker(proxifyURL(aURL), options);
 		
 		return output
 	}

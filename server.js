@@ -2,20 +2,16 @@ const fs = require('fs'),
 	process = require('process'),
 	fetch = require('node-fetch'),
 	express = require('express'),
-	websocket = require('ws'),
 	app = express(),
 	path = require('path'),
-	mime = require('mime'),
+	mime = require('mime/lite'),
 	util = require('util'),
 	cookieParser = require('cookie-parser'),
-	streamPipeline = util.promisify(require('stream').pipeline),
-	https = require('https'),
 	http = require('http'),
-	bodyParser = require('body-parser'),
+	https = require('https'),
 	htmlMinify = require('html-minifier'),
 	compression = require('compression'),
 	os = require('os'),
-	crypto = require('crypto'),
 	dns = require('dns'),
 	socksProxyAgent = require('socks-proxy-agent'),
 	image = {
@@ -71,43 +67,36 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 		}
 	}catch(err){}},
 	validURL = (url)=>{
-		try{
-			return new URL(url)
-		}catch(err){
-			return null
-		}
+		try{ return new URL(url)
+		}catch(err){ return null }
 	},
 	randomIP = ()=>{
-		return (Math.floor(Math.random() * 255) + 1)+"."+(Math.floor(Math.random() * 255))+"."+(Math.floor(Math.random() * 255))+"."+(Math.floor(Math.random() * 255))
-	},
-	getDifference = (begin,finish)=>{
-		var ud=new Date(finish-begin);
-		var s=Math.round(ud.getSeconds());
-		var m=Math.round(ud.getMinutes());
-		var h=Math.round(ud.getUTCHours());
-		return `${h} hours, ${m} minutes, ${s} seconds`
+		return (Math.floor(Math.random() * 255) + 1)+'.'+(Math.floor(Math.random() * 255))+'.'+(Math.floor(Math.random() * 255))+'.'+(Math.floor(Math.random() * 255))
 	},
 	addproto = (url)=>{
 		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = "https://" + url;
 		return url;
 	},
 	similar = (a,b)=>{
-		var equivalency = 0;
-		var minLength = (a.length > b.length) ? b.length : a.length;    
-		var maxLength = (a.length < b.length) ? b.length : a.length;    
+		var equivalency = 0,
+			minLength = (a.length > b.length) ? b.length : a.length,    
+			maxLength = (a.length < b.length) ? b.length : a.length;
+		
 		for(var i=0;i<minLength;i++)if(a[i]==b[i])equivalency++;
+		
 		var weight = equivalency / maxLength;
-		return (weight * 100);
+		
+		return weight * 100;
 	},
 	ready = ()=>{
 		if(config.webserver.listenip=='0.0.0.0' || config.webserver.listenip=='127.0.0.1')config.webserver.listenip='localhost';
 		var msg = `Listening on ${config.webserver.ssl ? 'https' : 'http'}://${config.webserver.listenip}:${workerData.port}`;
 		process.send({ type: 'started', msg: msg });
 	},
-	btoa=(str,encoding)=>{
+	btoa = (str,encoding)=>{
 		return Buffer.from(str,'utf8').toString(( typeof encoding == 'undefined' ? 'base64' : encoding))
 	},
-	atob=(str,encoding)=>{
+	atob = (str,encoding)=>{
 		return Buffer.from(str, ( typeof encoding == 'undefined' ? 'base64' : encoding)).toString('utf8')
 	},
 	proxyAgent = (config.proxy.vpn.enabled == true ? new socksProxyAgent('socks5://' + config.proxy.vpn.socks5) : null)
@@ -153,7 +142,7 @@ app.use((req, res, next)=>{
 	if(req.method == 'POST'){ // get the req.body stuff on post requests
 		req.setEncoding('utf8');
 		req.raw_body = ''
-		req.body = {}
+		req.body = new Object()
 		
 		req.on('data', chunk=>{ req.raw_body += chunk });
 		
@@ -177,8 +166,10 @@ app.use((req, res, next)=>{
 });
 
 app.use((req,res,next)=>{
-	// hacky implementation of session stuff
-	// this will add request.session ( a proxy thing acting as an object so it can see whats being added to push to the centeral script )
+	/* hacky implementation of session stuff
+	// this will add request.session ( a proxy thing acting as an object so it
+	// can see whats being added to push to the centeral script )
+	*/
 	
 	var tmp_data = {
 			url_proto: req.get('x-forwarded-proto') || req.protocol
@@ -193,7 +184,7 @@ app.use((req,res,next)=>{
 	
 	if(typeof tmp_data.sid == 'undefined' || tmp_data.sid.length <= 7){
 		while(true){
-			tmp_data.sid = crypto.randomBytes(32).toString('hex');
+			tmp_data.sid =  Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 			if(sessions[tmp_data.sid] != null)continue;
 			break;
 		}
@@ -246,19 +237,18 @@ app.get('/suggestions',(req,res)=>{ // autocomplete urls
 });
 
 var urlData=JSON.parse(fs.readFileSync('url-data.json','utf8')),
-	writeURLs=(()=>{
+	writeURLs = ()=>{
 		var perhaps=JSON.parse(fs.readFileSync('url-data.json','utf8'));
 		if(urlData == perhaps)return false; // the url data hasnt changed
 		// if the above hasnt done a thing then code continues
-		fs.writeFileSync('url-data.json',JSON.stringify(urlData, null, '\t'),'utf-8');
+		fs.writeFileSync('url-data.json', JSON.stringify(urlData, null, '\t'),'utf-8');
 		// data success
-	}),
-	reloadURLs=(()=>{
+	},
+	reloadURLs = ()=>{
 		// we read file stuff now
 		var perhaps=JSON.parse(fs.readFileSync('url-data.json','utf8'));
 		if(urlData != perhaps)urlData=perhaps;
-	}),
-	urlExpire=10800000;
+	};
 	// 3000 = 3 seconds, 10000 = 10 seconds, 60000 = 1 minute, 180000 = 3 minutes, 10800000 = 3 hours
 
 app.post('/alias',(req,res,next)=>{
@@ -266,7 +256,7 @@ app.post('/alias',(req,res,next)=>{
 		alias = req.body.alias.trim().toLowerCase().replace(/[^a-z0-9.:\/]/gi,''), // replace more bad characters!
 		sideNote=''; // additional user message for later if needed
 	try{
-		url=new URL(url).origin
+		url = new URL(url).origin
 	}catch(err){
 		res.status(400);
 		res.contentType('text/html');
@@ -278,9 +268,9 @@ app.post('/alias',(req,res,next)=>{
 	
 	// Alias errors
 	
-	if(alias == '')sideNote=`A random alias had to be generated due to an alias not being specified`;
-	if(urlData.some(e=> e.alias.startsWith(alias) || alias.startsWith(e.alias) ) )sideNote=`A random alias had to be generated due to conflicts with other aliases`;
-	if(alias.length < 4)sideNote=`The alias specified was shorter than 4 characters so a random one was generated`;
+	if(alias == '')sideNote = 'A random alias had to be generated due to an alias not being specified';
+	if(urlData.some(e=> e.alias.startsWith(alias) || alias.startsWith(e.alias) ) )sideNote = 'A random alias had to be generated due to conflicts with other aliases';
+	if(alias.length < 4)sideNote = 'The alias specified was shorter than 4 characters so a random one was generated';
 	
 	// URL errors
 	if(config.directIPs==false && url.match(/(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)/gi)){
@@ -304,16 +294,18 @@ app.post('/alias',(req,res,next)=>{
 			break;
 		}
 	}
+	
 	urlData.push({
 		time: Date.now(),
 		value: addproto(url),
 		alias: alias
 	});
+	
 	writeURLs();
 	res.status(200);
 	res.contentType('text/html');
 	
-	if(sideNote != '')sideNote=`<div class='lbottom'><span class='logMsg'>`+sideNote+`</span></div>`;
+	if(sideNote != '')sideNote = '<div class="' + lbottom + '"><span class="log_msg">' + sideNote + '</span></div>';
 	return res.send(message_page.replace('%TITLE%','Success').replace('%REASON%',`
 	<a href="./${req.fullURL.origin}/alias/${alias}"><span>${req.fullURL.origin}/alias/${alias}</span></a> now points to <a href="./${addproto(url)}"><span>${addproto(url)}</span></a>
 	${sideNote}
@@ -323,38 +315,33 @@ app.post('/alias',(req,res,next)=>{
 app.use((req,res,next)=>{
 	if( !req.url.startsWith('/prox') ||  (req.method == 'POST' && !req.body.url) || (req.method == 'GET' && !req.query.url) )return next();
 	
-	var url = addproto((req.method == 'GET' ? req.query.url : req.body.url));
+	var url = validURL(addproto((req.method == 'GET' ? req.query.url : req.body.url)));
 	
-	try{
-		url=new URL(addproto(url))
-	}catch{
-		return next() // dont parse bad urls
-	}
+	// valid url returns null if the url is invalid
+	if(url == null)return next();
 	
-	res.redirect('/'+url.href);
-	
-	url = null
+	// redirect to a url with https in it
+	return res.redirect('/' + url.href);
 });
 
-app.use((req,res,next)=>{
-	if(req.fullURL.pathname != '/rpm' || (req.method == 'POST' && !req.body.url) || (req.method == 'GET' && !req.query.url))return next();
-	
-	var url = addproto((req.method == 'GET' ? req.query.url : req.body.url));
+app.post('/session-url', (req,res,next)=>{
+	// check for no url at all or a bad url
+	if(req.body.url == null || (typeof req.body.url == 'string' && req.body.url.length == undefined))return genMsg(req, res, 400, 'Specify a url in your post body');
 	
 	req.session.pm_session = true
-	req.session.pm_session_url = url
+	req.session.pm_session_url = req.body.url
 	
-	res.redirect('/ses/');
-	
-	url = null
+	res.redirect(302, '/ses/');
 });
 
 app.use(async (req,res,next)=>{
 	if(req.query.ws != undefined)return next(); // noo websocket script did not handle 
 	
 	if(req.query.pm_url == null && fs.existsSync(path.join(public_dir, req.fullURL.pathname)) )return next()
-	else if(req.fullURL.pathname == '/clrSes'){
-		req.session.expires = Date.now(); // set it so this session expires quicklyy
+	else if(req.fullURL.pathname == '/clear-session'){
+		Object.entries(req.session).forEach(e=>{ // clear all session data
+			req.session[e[0]] = null
+		});
 		return res.send(message_page.replace('%TITLE%','Session data cleared').replace('%REASON%', 'All was done with success' ));
 	}else if(req.fullURL.pathname.match(/^\/{3}/gi)){ //, //domain.tld => https://domain.tld
 		return res.redirect(302, req.fullURL.pathname.replace(/^\/{3}/gi, '/https://') )
@@ -413,21 +400,17 @@ app.use(async (req,res,next)=>{
 	var alias_mode=urlData.some(e=>req.url.match(new RegExp(`^/alias/${e.alias}`,'gi')));
 	var shor='placeholder', newURL='placeholder', alias_set='placeholder';
 	
-	if(req.fullURL.pathname.startsWith('/no_proxy/')){
-		req.fullURL = new URL(req.fullURL.href.replace(/\/no_proxy\//gi, '/'));
-		req.no_proxy = true;
-	}
-	
 	if(req.query.pm_url != null && validURL(atob(req.query.pm_url)) ){
 		url = new URL(atob(req.query.pm_url))
 	}else if( alias_mode ){ // if a shortened url link matches in the url stuff
 		
 		urlData.forEach((e,i)=>{
-			var regoink=new RegExp(`^\/alias\/${e.alias}`,'gi');
-			if(req.fullURL.pathname.match(regoink)){
+			var tmp_regex = new RegExp(`^\/alias\/${e.alias}`,'gi');
+			
+			if(req.fullURL.pathname.match(tmp_regex)){
 				shor = e.value; // set shortened to the value found within the url data stuff
 				alias_set = e.alias;
-				newURL = req.url.replace(regoink,e.value);
+				newURL = req.url.replace(tmp_regex, e.value);
 				url = new URL(newURL);
 				
 			}
@@ -437,7 +420,7 @@ app.use(async (req,res,next)=>{
 		
 		if(req.session.pm_session != true)return genMsg(req, res, 403, 'You need a url session to access this page.');
 			
-		try {
+		try{
 			var tmp = new URL(req.session.pm_session_url);
 			url = new URL(tmp.origin + '/' + req.fullURL.pathname.replace(/^\/ses\//gi, '') );
 		}catch(err){
@@ -494,7 +477,7 @@ app.use(async (req,res,next)=>{
 	
 	var poggerUrl = req.url.substr(1).replace(/http(s?):\/([^\/])/gi,"http$1://$2");
 	
-	if(req.session.pm_session != true && req.no_proxy != true && !alias_mode && poggerUrl != url.href && !req.query.pm_url)return res.redirect(307,'/'+url.href);
+	if(req.session.pm_session != true && !alias_mode && poggerUrl != url.href && !req.query.pm_url)return res.redirect(307,'/'+url.href);
 	
 	// handle post body:
 	
@@ -560,7 +543,8 @@ app.use(async (req,res,next)=>{
 		return res.redirect(307, tmp2);
 	}
 	
-	if(typeof data.response == 'undefined' || typeof data.response.buffer != 'function')return; // error should have already been handled at this point so just return
+	// error should have already been handled at this point so just return
+	if(typeof data.response == 'undefined' || typeof data.response.buffer != 'function')return;
 	
 	data.sendData = await data.response.buffer();
 	
@@ -586,7 +570,8 @@ app.use(async (req,res,next)=>{
 	res.contentType(data.contentType);
 	res.status(data.response.status);
 	
-	if(data.contentType.startsWith('application/x-shockwave-flash') || data.contentType.includes('font'))return res.send(data.sendData); // get straight to the font
+	// get straight to the font or swf
+	if(data.contentType.startsWith('application/x-shockwave-flash') || data.contentType.includes('font'))return res.send(data.sendData);
 	
 	if(data.contentType.startsWith('image')){
 		switch(data.contentType.match(/^[^\s\/]*?\/([^\s\/;]*)/gi)[0]){
@@ -613,7 +598,7 @@ app.use(async (req,res,next)=>{
 		res.set('Cache-Control','max-age=31536000'); // big cache for images
 	}
 	
-	if(data.contentType.startsWith('text/') || data.contentType.startsWith('application/' && req.no_proxy != true) ){
+	if(data.contentType.startsWith('text/') || data.contentType.startsWith('application/')){
 		data.sendData = (()=>{ var output = ''; data.sendData.toString('utf8').split('\n').forEach(e=> output += e + '\n'); return output })(); // convert buffer to string
 		
 		var regUrlOri=req.fullURL.origin.replace('.','\\.').replace('/','\\/'), // safe way to have url origin in regex
@@ -624,11 +609,6 @@ app.use(async (req,res,next)=>{
 		if(data.contentType.startsWith('text/css'))data.sendData = htmlMinify.minify('<style>' + data.sendData + '</style>', {minifyCSS: true, }).replace(/(?:^<style>|<\/style>$)/gi,''); // cool trick to get htmlMinify to minify a css file and have it display correctly
 		
 		data.sendData = await data.sendData
-		// replace window with our modified window variable
-		// .replace(/window/gi, 'pm_window')
-		// only match document calls, anything with window before it is handled too
-		// .replace(/(?<!window\.)document/gi, 'pm_document')
-		
 		.replace(new RegExp('(:\s*?url\\((?:"|\')?)(?!data:|' + regexFullOrigin + ')([\\s\\S]*?)((?:"|\')?\\))', 'gi'), (match, p1, p2, p3, offset, string)=>{
 			var output = ''
 			
@@ -657,12 +637,6 @@ app.use(async (req,res,next)=>{
 		.replace(new RegExp(workerData.ip, 'gi'), randomIP())
 		.replace(new RegExp(btoa(workerData.ip), 'gi'), randomIP())
 		;
-		
-		if(url.href == 'https://www.gstatic.com/recaptcha/releases/IU7gZ7o6RDdDE6U4Y1YJJWnN/recaptcha__en.js'){
-			data.sendData = data.sendData
-			.replace(/(window\.)?location/gi, 'pm_url')
-			;
-		}
 		
 		if(data.contentType.startsWith('text/html')){
 			var preload_script_data = {
@@ -719,7 +693,7 @@ app.use(async (req,res,next)=>{
 			// pm url should be defined in a script somewhere
 			
 			// empty title thing
-			// .replace(/<title.*?>.*?<\/ ?title>/gi,'<title>‮</title>')
+			.replace(/<title.*?>.*?<\/ ?title>/gi,'<title>‮</title>')
 			.replace(/("|').[^"']*\.ico(?:\?.*?)?("|')/gi,'$1/favicon.ico$2')
 			.replace(/ ?onmousedown="return rwt\(this,.*?"/gi,'')
 			.replace(/("|')_(?:blank|top|parent)\1/gi,'$1_self$1')

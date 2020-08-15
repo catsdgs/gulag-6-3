@@ -11,7 +11,7 @@ const fs = require('fs'),
 var workers = {
 		broadcast: (data)=>{
 			workers.instances.forEach((e,i)=>{
-				if(e == null)return;
+				if(e.exitCode == null)return;
 				e.send(data);
 			});
 		},
@@ -26,27 +26,25 @@ var workers = {
 			port: process.env.PORT || config.webserver.port,
 		}
 	},
-	cluster_stuff = new stream.Transform({ decodeStrings: false }),
+	cluster_stderr = new stream.Transform({ decodeStrings: false }),
 	makeWorker = (i)=>{
 		if(config.workers.max_errors < workers.errors )return console.log('Error count at ' + config.workers.max_errors + ', refusing to create more workers..');
 		
 		cluster.setupMaster({
 			exec: 'server.js',
 			args: ['--use', (config.ssl == true ? 'http' : 'https --use http') ],
-			silent: true,
+			stdio: ['ignore', process.stdout, 'pipe', 'ipc'],
 		});
 		
 		var worker = cluster.fork();
 		
 		workers.instances[i] = worker
 		
+		worker.process.stderr.pipe(cluster_stderr); // pipe errors
+		
 		if(process.env.REPL_OWNER != null)workers.data.port = null; // on repl.it
 		
 		worker.send(workers.data);
-		
-		worker.process.stdout.pipe(process.stdout);
-		
-		var stream_thing = worker.process.stderr.pipe(cluster_stuff);
 		
 		worker.on('message', (data)=>{
 			switch(data.type){
@@ -83,10 +81,10 @@ var workers = {
 		});
 		
 		worker.once('exit', code => { // exit will only be called once
-			cluster_stuff.eventNames().forEach(event_name =>{
-				if(cluster_stuff.listeners(event_name).length >= 6)cluster_stuff.listeners(event_name).forEach((event, event_index)=>{
+			cluster_stderr.eventNames().forEach(event_name =>{
+				if(cluster_stderr.listeners(event_name).length >= 6)cluster_stderr.listeners(event_name).forEach((event, event_index)=>{
 					if(event_index == i){
-						cluster_stuff.off(event_name, event);
+						cluster_stderr.off(event_name, event);
 					}
 				});
 			});
@@ -166,10 +164,10 @@ rl.on('line', (line)=>{
 		case'reload':
 			workers.errors = 0 // allow new ones to be created
 			
-			cluster_stuff.eventNames().forEach(event_name =>{ // remove listeners
-				cluster_stuff.removeAllListeners(event_name);
+			cluster_stderr.eventNames().forEach(event_name =>{ // remove listeners from error logging
+				cluster_stderr.removeAllListeners(event_name);
 			});
-			 
+			
 			Object.keys(require.cache).forEach((key)=>{
 				delete require.cache[key];
 			});  
@@ -199,7 +197,7 @@ rl.on('line', (line)=>{
 
 rl.on('SIGINT',(rl)=>process.exit(0)); // ctrl+c quick exit
 
-cluster_stuff._transform = function(chunk, encoding, done) {
+cluster_stderr._transform = function(chunk, encoding, done) {
 	var data = chunk.toString();
 	
 	fs.appendFileSync('./error.log', data);
