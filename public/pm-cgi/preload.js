@@ -36,8 +36,9 @@ var emptyFunctionPreload = ()=>{},
 	_setAttribute = window.Element.prototype.setAttribute,
 	_eps = Element.prototype.setAttribute,
 	_epa =  Element.prototype.appendChild,
+	_encoded_urls = true,
 	proxifyURL = (url)=>{
-		if(typeof url != 'string')return null;
+		if(typeof url != 'string')return url;
 		
 		if(url.match(/^(?:blob|data|javascript):/gi))return url; // data urls
 		
@@ -50,6 +51,8 @@ var emptyFunctionPreload = ()=>{},
 		//   /bruh => /https://pm_url-domain.tld/bruh
 		
 		url = url.replace(/^\/(?!.{3,}:\/\/)\/?/gi, pm_url.origin + '/'); 
+		
+		if(url == null)url = '';
 		
 		/* bruh => /https://pm_url-domain.tld/bruh
 		// notice the lack of a / at the start
@@ -65,7 +68,7 @@ var emptyFunctionPreload = ()=>{},
 		
 		// url should be formed nicely so just like base64ify it
 		
-		if(url.length <= 1024)url = location.origin + '/?pm_url=' + btoa(url)
+		if(_encoded_urls && url.length <= 1024)url = location.origin + '/?pm_url=' + btoa(url)
 		else url = location.origin + '/' + url
 		
 		return url

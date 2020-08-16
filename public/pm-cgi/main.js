@@ -36,18 +36,15 @@ fancyButtons.forEach(e=>{
 
 window.addEventListener('load', async()=>{
 	var stats = await window.fetch('stats').then(e => e.json()),
-		ping_element = document.querySelector('#ping'),
 		uptime_value = stats.uptime, uptime_init = Date.now(), // keep these static
 		uptime_element = document.querySelector('#uptime');
 	
 	// set this before the interval as the interval doesnt start instantly
 	
-	ping_element.innerHTML = Date.now() - stats.start_time + ' ms'
 	uptime_element.innerHTML = getTimeStr(stats.uptime * 1000 + (Date.now() - uptime_init));
 	
 	setInterval(async ()=>{
 		stats = await window.fetch('stats').then(e => e.json());
-		ping_element.innerHTML = Date.now() - stats.start_time + ' ms'
 	}, 1000);
 	
 	setInterval(()=>{

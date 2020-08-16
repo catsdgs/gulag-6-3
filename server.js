@@ -212,7 +212,7 @@ app.use((req,res,next)=>{
 app.get('/stats', (req, res, next)=>{
 	res.status(200);
 	res.contentType('application/json');
-	res.send(JSON.stringify({ start_time: req.start, uptime: process.uptime().toString() }))
+	res.send(JSON.stringify({ uptime: process.uptime().toString() }))
 });
 
 app.get('/suggestions',(req,res)=>{ // autocomplete urls
@@ -475,9 +475,11 @@ app.use(async (req,res,next)=>{
 	** will become https://google.com/directory/ <== notice the slash added
 	*/
 	
+	/*
 	var poggerUrl = req.url.substr(1).replace(/http(s?):\/([^\/])/gi,"http$1://$2");
 	
 	if(req.session.pm_session != true && !alias_mode && poggerUrl != url.href && !req.query.pm_url)return res.redirect(307,'/'+url.href);
+	*/
 	
 	// handle post body:
 	
