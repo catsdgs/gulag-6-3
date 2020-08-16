@@ -1,6 +1,6 @@
 var fancyButtons = eval(atob('WwoJCVsnUmVkZGl0Jywnb2xkLnJlZGRpdC5jb20nLCdvcmFuZ2UnXSwKCQlbJ0dvb2dsZScsJ3d3dy5nb29nbGUuY29tJywnZ3JlZW4nXSwKCQlbJ1lvdVR1YmUnLCd3d3cueW91dHViZS5jb20nLCdyZWQnXSwKCQlbJ0Rpc2NvcmQnLCd3d3cuZGlzY29yZC5jb20vbG9naW4nLCdibHVlJ10sCgld')),
-	url_bar = document.querySelector('.url'),
-	url_fill = document.querySelector('.url_fill'),
+	url_bar = document.querySelector('.input-url'),
+	url_fill = document.querySelector('.tld-autofill'),
 	activeElement = prevActiveEle = document.body,
 	buttons_container = document.querySelector('.button_container'),
 	addproto = (url)=>{

@@ -1,9 +1,11 @@
-.alias {
+.second-input-url {
 	width: calc(50% - 1rem);
 	height: 44px;
 	display: block;
 	float: right;
 	margin-top: 0px;
+	border-top-left-radius: 0px;
+	border-bottom-left-radius: 0px;
 }
 
 .visit {

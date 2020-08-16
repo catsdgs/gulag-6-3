@@ -13,26 +13,30 @@
 		<link rel='stylesheet' href='/pm-cgi/main.css'>
 	</head>
 	<body>
-		<div class='head'>
-			<h1><a class='noStyle ns' href='/'>powerMouse</a></h1>
-			<a draggable='false' href='https://github.com/vibedivide/powermouse'><div class='ns git'>Fork us on GitHub</div></a>
-		</div>
-		<div class='listing'>
-			<div class='inputWrapper'>
-				<form id='mainForm' action='/prox' method='POST'>
-					<div class='url_fill'>
-						<input name='url' class='form-text url' type='text' autocomplete='off' placeholder='https://www.google.com/' required>
-					</div>
+		<div class='wrapper'>
+			<div class='head'>
+				<a class='header ns' href='/'>powerMouse</a>
+				<a draggable='false' href='https://github.com/vibedivide/powermouse'><div class='ns git'>Fork us on GitHub</div></a>
+			</div>
+			<div class='content'>
+				<form id='field' action='/prox' method='POST'>
+					<input name='url' class='form-text input-url' type='text' autocomplete='off' placeholder='https://www.google.com/' required>
 					<button type='submit' class='btn btn-blu visit'>Go</button>
+					<div class='tld-autofill'>
+					
+					</div>
 				</form>
+				
 				<div class='button_container'></div>
-			</div>
-			<div class='lbottom top-to-bottom'>
-				<div>Uptime: <span id='uptime'></span></div>
-			</div>
-			<div class='rbottom'>
-				<a href='./link-gen.html' id='tempURL'>Temporary URL</a>
-				<a href='./session.html' id='tempURL'>Session URL</a>
+				
+				<div class='lbottom top-to-bottom'>
+					<div>Uptime: <span id='uptime'></span></div>
+				</div>
+				
+				<div class='rbottom'>
+					<div><a href='./link-gen.html'>Temporary URL</a></div>
+					<div><a href='./session.html'>Session URL</a></div>
+				</div>
 			</div>
 		</div>
 		<script type='text/javascript' src='/pm-cgi/main.js'></script>

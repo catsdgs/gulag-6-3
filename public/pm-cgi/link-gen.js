@@ -5,20 +5,19 @@ var getDifference=((begin,finish)=>{
 		var h=Math.round(ud.getUTCHours());
 		return `${h} hours, ${m} minutes, ${s} seconds`
 	}),
-	addproto=((url)=>{
+	addproto = url=>{
 		if (!/^(?:f|ht)tps?\:\/\//.test(url))url = "https://" + url;
 		return url;
-	}),
-	form=document.getElementById('mainForm'),
-	logMsg=document.getElementById('logMsg'),
-	urlBar=document.getElementsByClassName('url')[0];
+	},
+	logMsg = document.querySelector('.log-msg'),
+	urlBar = document.querySelector('.input-url');
 
-form.addEventListener('submit',(e)=>{
-	urlBar.value=addproto(urlBar.value); // add protocol on the client first, server does this too
+document.querySelector('#field').addEventListener('submit',(e)=>{
+	urlBar.value = addproto(urlBar.value); // add protocol on the client first, server does this too
 	try{
 		new URL(urlBar.value);
 	}catch(err){
 		e.preventDefault();
-		logMsg.innerHTML=err.message;
+		logMsg.innerHTML = err.message;
 	}
 });
