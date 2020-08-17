@@ -46,7 +46,7 @@ npm install
 ```
 npm start
 ```
-10. The page will be available at http://127.0.0.1:808080/ or whatever you set it to in the config.json file. Note: this will only be accessible from your local computer. If you want to set this up for others to use (or you to use elsewhere), refer to the VPS Installation section.
+10. The page will be available at http://127.0.0.1:8080/ or whatever you set it to in the config.json file. Note: this will only be accessible from your local computer. If you want to set this up for others to use (or you to use elsewhere), refer to the VPS Installation section.
 ### Local Installation (MacOS)
 1. Install NodeJS and NPM from [here](https://nodejs.org/en/download/).
 2. Download this repo as a zip archive from [here](https://github.com/titaniumnetwork-dev/powermouse/archive/master.zip).
@@ -66,7 +66,7 @@ npm install
 ```
 npm
 ```
-10. The page will be available at http://127.0.0.1:808080/ or whatever you set it to in the config.json file. Note: this will only be accessible from your local computer. If you want to set this up for others to use (or you to use elsewhere), refer to the VPS Installation section.
+10. The page will be available at http://127.0.0.1:8080/ or whatever you set it to in the config.json file. Note: this will only be accessible from your local computer. If you want to set this up for others to use (or you to use elsewhere), refer to the VPS Installation section.
 ### Local Installation (Linux)
 These are the same instructions as VPS Installation, besides for instead of SSHing into a console, you just open a terminal with CTRL + ALT + T
 ### VPS Installation (Linux)
