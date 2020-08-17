@@ -90,7 +90,7 @@ var workers = {
 			});
 			
 			if(code != 0 && code != null){
-				workers.errors++
+				//workers.errors++
 				
 				workers.instances[i] = null
 				

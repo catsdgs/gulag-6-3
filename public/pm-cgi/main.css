@@ -34,7 +34,7 @@ body {
 	position: relative;
 	display: block;
 	width: calc(100% - 10px);
-	min-height: 70px;
+	min-height: 75px;
 	border: 1px solid #b6b6b6;
 	background: #111;
 	border-radius: 1px;
@@ -46,7 +46,7 @@ a.header {
 	height: 100%;
 	text-decoration: none !important;
 	color: white !important;
-	line-height: 60px;
+	line-height: 75px;
 	margin-left: 5px;
 }
 
@@ -191,14 +191,12 @@ a.header {
 	transition: none;
 	
 	cursor: pointer;
-	
-	background: rgb(42,171,210);
-	background: linear-gradient(0deg, rgba(42,171,210,1) 0%, rgba(91,192,222,1) 100%) repeat-x;
+	background: linear-gradient(0deg, rgb(210, 97, 42) 0%, rgb(222, 152, 91) 100%) repeat-x;
 	
 	-webkit-box-shadow: inset 0 1px 0 rgba(255,255,255,.15),0 1px 1px rgba(0,0,0,.075);
 	box-shadow: inset 0 1px 0 rgba(255,255,255,.15),0 1px 1px rgba(0,0,0,.075);
 	
-	border-color: #28a4c9;
+	border: 1px #313131 solid;
 	border-radius: 1px;
 	
 	white-space: normal;
@@ -211,36 +209,36 @@ a.header {
 }
 
 .btn-fancy:hover {
-	background-color: #2aabd2;
+	background-color: #d2612a;
 	background-position: 0 -15px;
 }
 
 .btn-fancy:hover:active {
-	background-color: #2aabd2;
-	border-color: #28a4c9;
+	background-color: #d2692a;
+	border-color: #313131;
 	background-image: none;
 	box-shadow: inset 0 3px 5px rgba(0,0,0,.125);
 }
 
-.bnt-blue { background-image: linear-gradient(0deg, rgb(42, 76, 210) 0%, rgb(91, 154, 222) 100%); border-color: #2850c9 }
+.bnt-blue { background-image: linear-gradient(0deg, rgb(42, 76, 210) 0%, rgb(91, 154, 222) 100%); }
 .bnt-blue:hover { background-color: #2a4cd2 }
 .bnt-blue:hover:active { background-color: #2a5cd2 }
 
-.bnt-cyan { background-image: linear-gradient(0deg, rgba(42,171,210,1) 0%, rgba(91,192,222,1) 100%); border-color: #28a4c9 }
+.bnt-cyan { background-image: linear-gradient(0deg, rgba(42,171,210,1) 0%, rgba(91,192,222,1) 100%); }
 .bnt-cyan:hover { background-color: #2aabd }
 .bnt-cyan:hover:active { background-color: #2aabd2 }
 
-.bnt-red { background-image: linear-gradient(0deg, rgb(210, 42, 42) 0%, rgb(222, 91, 91) 100%); border-color: #c92828 }
+.bnt-red { background-image: linear-gradient(0deg, rgb(210, 42, 42) 0%, rgb(222, 91, 91) 100%); }
 .bnt-red:hover { background-color: #d22a2a }
 .bnt-red:hover:active { background-color: #d22a2a }
 
-.bnt-orange { background-image: linear-gradient(0deg, rgb(210, 97, 42) 0%, rgb(222, 152, 91) 100%); border-color: #c95528 }
+.bnt-orange { background-image: linear-gradient(0deg, rgb(210, 97, 42) 0%, rgb(222, 152, 91) 100%); }
 .bnt-orange:hover { background-color: #d2612a }
 .bnt-orange:hover:active { background-color: #d2692a }
 
-.bnt-green { background-image: linear-gradient(0deg, rgb(42, 210, 76) 0%, rgb(91, 222, 118) 100%); border-color: #28c949 }
-.bnt-green:hover { background-color: #2ad25c }
-.bnt-green:hover:active { background-color: #2ad24c }
+.bnt-green { background-image: linear-gradient(0deg, rgb(33, 157, 58) 0%, rgb(31, 204, 67) 100%); }
+.bnt-green:hover { background-color: #189d3f }
+.bnt-green:hover:active { background-color: #179330 }
 
 #field {
 	width: calc(100% - 40px);
