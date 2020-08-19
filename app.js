@@ -141,9 +141,10 @@ require('./url-manager.js');
 	});
 	workers.data.tldRegex = new RegExp(`\\.(?:${workers.data.tlds.substr(0,workers.data.tlds.length-1)})$`,'gi');
 	
-	if(process.env.DYNO != null){ // on heroku
+	/*if(process.env.DYNO != null){ // on heroku
 		workers.count = 1
-	}else if(config.workers.manual_amount.enabled){ // amount was manually set
+	}else */
+	if(config.workers.manual_amount.enabled){ // amount was manually set
 		workers.count = config.workers.manual_amount.count
 	}else if(config.workers.enabled){ // normal, use amount of cpu threads
 		workers.count = os.cpus().length
