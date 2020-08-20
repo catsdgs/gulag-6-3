@@ -3,16 +3,16 @@ const fs = require('fs'),
 	fetch = require('node-fetch'),
 	express = require('express'),
 	app = express(),
+	os = require('os'),
+	dns = require('dns'),
 	path = require('path'),
 	mime = require('mime'),
 	util = require('util'),
-	cookieParser = require('cookie-parser'),
 	http = require('http'),
 	https = require('https'),
-	htmlMinify = require('html-minifier'),
 	compression = require('compression'),
-	os = require('os'),
-	dns = require('dns'),
+	htmlMinify = require('html-minifier'),
+	cookieParser = require('cookie-parser'),
 	socksProxyAgent = require('socks-proxy-agent'),
 	image = {
 		jpeg: require('imagemin-mozjpeg'),
@@ -48,6 +48,10 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 				res.status(400)
 				return res.send(message_page.replace('%TITLE%',value.code).replace('%REASON%', value.message ));
 				break
+			case 503:
+				res.status(code)
+				return res.send(message_page.replace('%TITLE%',code).replace('%REASON%', (value || 'Service unavailable') ));
+				break
 			case 400:
 				res.status(code)
 				return res.send(message_page.replace('%TITLE%',code).replace('%REASON%', (value || 'Bad request') ));
@@ -63,6 +67,13 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 				break
 		}
 	}catch(err){}},
+	skip_headers = [
+		/content-encoding/g,
+		/content-security-policy/g,
+		/x-frame-options/g,
+		/x-cache/g,
+		/^cf-/g,
+	],
 	validURL = (url)=>{
 		try{ return new URL(url)
 		}catch(err){ return null }
@@ -351,14 +362,13 @@ app.use(async (req,res,next)=>{
 		});
 		return res.send(message_page.replace('%TITLE%','Session data cleared').replace('%REASON%', 'All was done with success' ));
 	}else if(req.fullURL.pathname.match(/^\/{3}/gi)){ //, //domain.tld => https://domain.tld
-		return res.redirect(302, req.fullURL.pathname.replace(/^\/{3}/gi, '/https://') )
-	
+		return res.redirect(302, req.fullURL.pathname.replace(/^\/{3}/gi, '/https://'))
 	}else if(config.proxy.ban_bots && workerData.banned_ua.test(req.get('user-agent'))){ // request is most likely from a bot
 		return genMsg(req, res, 403, 'bad bot!');
 	}
 	
 	var data = {
-			contentType: null,
+			contentType: 'text/plain',
 			sendData: null,
 			response: null,
 			fetch_headers: {
@@ -368,7 +378,7 @@ app.use(async (req,res,next)=>{
 						tmp+= e[0] + '=' + e[1] + ';'
 					});
 					return tmp
-				})()
+				})(),
 			},
 			fetch_options: {
 				method: req.method,
@@ -383,6 +393,9 @@ app.use(async (req,res,next)=>{
 					}
 				},
 			},
+			return_headers: {
+				
+			},
 			clearVariables: ()=>{
 				Object.entries(data).forEach(e=>{
 					delete data[ e[0] ]
@@ -394,6 +407,12 @@ app.use(async (req,res,next)=>{
 			},
 		},
 		url;
+	
+	/* ignore if the url is /https:/domain.tld
+	// and not /https://domain.tld
+	*/
+
+	req.url = req.url.replace(/^\/http(s?):\/(?!\/)/gi, '/http$1://');
 	
 	var tooManyOrigins=new RegExp(`(?:${req.fullURL.origin.replace(/\//g,'\\/').replace(/\./gi,'\\.')}\/|\/\/${req.fullURL.host.replace(/\\./g,'\\.')})`,'gi');
 	
@@ -451,7 +470,13 @@ app.use(async (req,res,next)=>{
 	
 	// if all went good, url should be an instance of URL
 	
-	if(req.session.pm_session != true && !alias_mode && req.url.substr(1) != url.href)return res.redirect(302, req.fullURL.origin + '/' + url.href) && data.clearVariables();
+	// not a special url modifying mode
+	if(req.session.pm_session != true && !alias_mode){
+		// url is off a bit
+		if(req.url.substr(1 + url.origin.length) != url.href.substr(url.origin.length)){
+			return res.redirect(302, req.fullURL.origin + '/' + url.href) && data.clearVariables();
+		}
+	}
 	
 	if(url.href == 'https://discordapp.com/api/v8/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login option to access discord' }));
 	
@@ -535,36 +560,36 @@ app.use(async (req,res,next)=>{
 	}
 	
 	data.response.headers.forEach((e,i)=>{
-		if(i == 'content-type')data.contentType = e; //safely set content-type
+		data.return_headers[i] = e
+		// if(i == 'content-type')data.contentType = e; //safely set content-type
 	});
 	
-	if(data.contentType == null)data.contentType = mime.getType(url.href.match(/\.(\w{2,4})/gi));
-	
-	if(data.contentType == null || data.contentType == undefined)data.contentType = 'text/html'; // set to text/html as last ditch effort
+	Object.entries(data.return_headers).forEach((e,i)=>{
+		if(skip_headers.some(s_name => e[0].toLowerCase().trim().match(s_name) ))return; // skip header if on list
+		
+		res.set(e[0], e[1]);
+		
+		if(e[0].toLowerCase().trim() == 'content-type')data.contentType = e[1]
+	});
 	
 	if(data.response.status.toString().startsWith('20') && data.contentType.startsWith('text/html') && typeof req.query['pm-origin'] == 'undefined')req.session.ref = url.href;
 	req.session.ref = url.href
 	
 	if(req.fullURL.href.match(/\.wasm$/gi))data.contentType = 'application/wasm'
 	
-	// if this is a buffer, not string, file is requesting to download, and is 0 bytes
-	if(data.sendData.constructor == Buffer && data.contentType == 'application/x-msdownload' && data.sendData.byteLength <= 0){
-		data.contentType = 'text/plain' // set contentype to text/plain to avoid downloading
-	}
-	
-	res.contentType(data.contentType);
 	res.status(data.response.status);
 	
 	// check if mime.getType will return something with font/ to avoid proxying fonts
 	
 	if(data.contentType.startsWith('application/x-shockwave-flash') || (mime.getType(url.href) != null && mime.getType(url.href).match(/^(?:font|audio|video)\//gi))){
-		return res.send(data.sendData);
+		return res.set('Cache-Control','max-age=31536000') && res.send(data.sendData);
 	}
 	
 	if(data.contentType.startsWith('image')){
+		res.set('Cache-Control','max-age=31536000');
+		
 		switch(data.contentType.match(/^[^\s\/]*?\/([^\s\/;]*)/gi)[0]){
-			case'image/webp': break // cannot double-compress without losing alpha
-			
+			// case'image/webp': break // cannot double-compress without losing alpha
 			case'image/jpeg':
 			case'image/jpg':
 				try{
@@ -579,8 +604,6 @@ app.use(async (req,res,next)=>{
 				
 				break
 		}
-		
-		res.set('Cache-Control','max-age=31536000'); // big cache for images
 	}
 	
 	if(data.contentType.startsWith('text/') || data.contentType.startsWith('application/')){
@@ -626,7 +649,7 @@ app.use(async (req,res,next)=>{
 		;
 		
 		if(data.contentType.startsWith('text/html')){
-			var preload_script_data = {
+			data.preload_script_data = {
 				pm_url: url.href,
 				pm_session: req.session.pm_session,
 				pm_session_url: req.session.pm_session_url,
@@ -640,6 +663,9 @@ app.use(async (req,res,next)=>{
 			data.sendData = data.sendData
 			// replace "//bing.com" => "https://bing.com"
 			.replace(/(\s[\D\S]*?\s*?=\s*?(\"|\'))\/{2}([\s\S]*?)\2/gi, '$1https://$3$2')
+			
+			// strange attribute names
+			.replace(/(xlink:)(href)/gi, '$2')
 			
 			// /websitelocalfilething => https://domain.tld/websitelocalfilething 
 			.replace(/(\s{1,})((?:target|href|data-href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))((?!data:|javascript:)\/[\s\S]*?)((?:"|'))/gi,'$1$2' + url.origin + '$3$4')
@@ -676,7 +702,7 @@ app.use(async (req,res,next)=>{
 			.replace(/(<(?:iframe|object)\s*src=("|'))((?:(?!\?)[\s\S])*?)(?:\2)/gi,'$1$3?pm-origin='+btoa(url.host)+'$2') // this regex is for strings without the ? in it
 			.replace(/(<(?:iframe|object)\s*src=("|'))((?:(?!&pm-origin=)[\s\S])*?)(?:\2)/gi,'$1$3&pm-origin='+btoa(url.host)+'$2') // this regex for the strings without the &pm-origin= inside of it
 			.replace(new RegExp(`(?:${req.fullURL.origin}|${url.origin})/data:`,'gi'),'data:') // fix data urls last
-			.replace(/(<script(?:.*?)>(?:(?!<\/script>)[\s\S])*<\/script>|<\/head>)/i, '<script data="' + encodeURI(btoa(JSON.stringify( preload_script_data, null ))) + '" src="/pm-cgi/preload.js?' + fs.statSync('./public/pm-cgi/preload.js').mtimeMs + '"></script>$1')
+			.replace(/(<script(?:.*?)>(?:(?!<\/script>)[\s\S])*<\/script>|<\/head>)/i, '<script data="' + encodeURI(btoa(JSON.stringify( data.preload_script_data, null ))) + '" src="/pm-cgi/preload.js?' + fs.statSync('./public/pm-cgi/preload.js').mtimeMs + '"></script>$1')
 			.replace(new RegExp(`${regUrlOri}\/\.\/`,'gi'),`./`)
 			;
 			

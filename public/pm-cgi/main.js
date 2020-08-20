@@ -1,4 +1,27 @@
 var fancyButtons = eval(atob('WwoJCVsnUmVkZGl0Jywnb2xkLnJlZGRpdC5jb20nLCdvcmFuZ2UnXSwKCQlbJ0dvb2dsZScsJ3d3dy5nb29nbGUuY29tJywnZ3JlZW4nXSwKCQlbJ1lvdVR1YmUnLCd3d3cueW91dHViZS5jb20nLCdyZWQnXSwKCQlbJ0Rpc2NvcmQnLCd3d3cuZGlzY29yZC5jb20vbG9naW4nLCdibHVlJ10sCgld')),
+	_cihash = ((r)=>{for(var a,o=[],c=0;c<256;c++){a=c;for(var f=0;f<8;f++)a=1&a?3988292384^a>>>1:a>>>1;o[c]=a}for(var n=-1,t=0;t<r.length;t++)n=n>>>8^o[255&(n^r.charCodeAt(t))];return(-1^n)>>>0})(navigator.userAgent),
+	charInsert = str =>{
+		var words = str.split(' '),	
+			output = '';
+		
+		words.forEach((word, word_index) =>{
+			var chars = word.split('');
+			
+			chars.forEach((chr, chr_index)=>{
+				var entity = '&#' + chr.charCodeAt();
+				output += '<span style="white-space: nowrap">'
+				
+				if(chr_index == 0 || chr_index == word.length )output += entity;
+				else output += '&#8203;<span style="display:none;font-size:0px;">&#8203;...' + _cihash + '</span>' + entity + '&#8203;';
+				
+				output += '</span>'
+			});
+			
+			if(word_index != words.length - 1)output += ' '
+		});
+		
+		return output
+	},
 	url_bar = document.querySelector('.input-url'),
 	url_fill = document.querySelector('.tld-autofill'),
 	activeElement = prevActiveEle = document.body,
@@ -27,7 +50,7 @@ fancyButtons.forEach(e=>{
 	buttons_container.appendChild(button); // apend to container
 	
 	button.setAttribute('class','ns btn-fancy bnt-'+e[2]);
-	button.innerHTML = e[0] // set contents of button
+	button.innerHTML = charInsert(e[0]) // set contents of button
 	
 	button.addEventListener('click', ()=>{ // dont use a hrefs becaus that will show up in the document
 		location.href = '/prox?url='+e[1];
@@ -66,6 +89,10 @@ document.addEventListener('click', e=>{ // set the previous and active element a
 });
 
 url_bar.addEventListener('keyup', async e=>{
+	if(url_bar.value.length <= 0)return Array.from(url_fill.getElementsByClassName('auto-fill')).forEach(e=>{
+		e.parentNode.removeChild(e); // clean up old suggestions
+	});
+	
 	var input = url_bar.value,
 		response = await fetch('/suggestions?input=' + encodeURIComponent(input)),
 		response_json = await response.json(); // our data is in a order of likely match to not likely match
@@ -79,7 +106,7 @@ url_bar.addEventListener('keyup', async e=>{
 			url = input.replace(tldRegexp,'.' + e + '$1');
 		url_fill.appendChild(suggestion);
 		suggestion.setAttribute('class','auto-fill ns');
-		suggestion.innerHTML=url;
+		suggestion.innerHTML = charInsert(url);
 		
 		suggestion.addEventListener('click', e=>{
 			url_bar.value = url;

@@ -1,6 +1,5 @@
-var data = JSON.parse(decodeURI(atob(document.currentScript.getAttribute('data'))));
-
-var emptyFunctionPreload = ()=>{},
+var data = JSON.parse(decodeURI(atob(document.currentScript.getAttribute('data')))),
+	emptyFunctionPreload = ()=>{},
 	pm_url = new URL(data.pm_url),
 	pm_log = function(){
 		return console.log('%c[Powermouse]', 'color: #800080;', ...arguments)
@@ -19,6 +18,7 @@ var emptyFunctionPreload = ()=>{},
 	_eps = Element.prototype.setAttribute,
 	_epa =  Element.prototype.appendChild,
 	_encoded_urls = true,
+	_window_open = window.open,
 	proxifyURL = (url)=>{
 		if(typeof url != 'string')return url;
 		
@@ -93,6 +93,10 @@ var emptyFunctionPreload = ()=>{},
 	
 	scripts.forEach(script=>{
 		if(script.conditions == true){ // if conditions to load script are actually met
+			
+			// if script already loaded, return
+			if(document.querySelectorAll('script[src="' + script.url + '"]').length != 0)return;
+			
 			pm_log('loading script ' + script.url);
 			var tmp = _createElement.apply(document, ['script']);
 			document.head.appendChild(tmp);
@@ -103,6 +107,26 @@ var emptyFunctionPreload = ()=>{},
 		}
 	});
 })();
+
+
+window.open = function(){
+	var args = arguments,
+		url = args[0];
+	
+	url = url.replace(/^\/{2,}/gi, 'https://'); //, // => https://
+	
+	if(url != null && url.match(/^(?!blob:|javascript:|data:|about:).*/gi)){ // not data: or javascript: or about:
+		if(url.match(/^\/(?!https?:\/\/).*/gi)){ // value starts with / and not anythin else
+			url = pm_url.origin + url
+		}
+		
+		if(!url.startsWith(location.origin))url = location.origin + '/' + url
+	}
+	
+	args[0] = url
+	
+	_window_open.apply(this, args);
+}
 
 postMessage = function(){
 	var args = arguments;

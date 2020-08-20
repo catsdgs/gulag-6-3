@@ -83,6 +83,10 @@ a.header {
 	height: 65px;
 }
 
+.git::after {
+	content: 'Fork us on GitHub';
+}
+
 .git:hover{
 	background:#fbff96;
 }
