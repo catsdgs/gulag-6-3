@@ -1,0 +1,18 @@
+.second-input-url {
+	border-top-left-radius: 0px;
+	border-bottom-left-radius: 0px;
+}
+
+@media only screen and (max-width: 768px) {
+	.rbottom {
+		display: revert;
+	}
+	
+	.field {
+		height: 180px;
+	}
+	
+	.input-url {
+		border-radius: 5px;
+	}
+}

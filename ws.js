@@ -1,32 +1,23 @@
 const ws = require('ws'),
-	fs=require('fs'),
-	util=require('util');
+	fs = require('fs'),
+	util = require('util');
 
-var conns = 0,
-	validURL = (url)=>{
-		try{
-			return new URL(url)
-		}catch(err){
-			return null
-		}
-	},
-	base64regex = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/,
+var base64regex = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/,
 	wss = null,
-	btoa=(str,encoding)=>{
+	validURL = url =>{
+		try{ return new URL(url) }catch(err){ return null }
+	},
+	btoa = (str,encoding)=>{
 		return Buffer.from(str,'utf8').toString(( typeof encoding == 'undefined' ? 'base64' : encoding))
 	},
-	atob=(str,encoding)=>{
+	atob = (str,encoding)=>{
 		return Buffer.from(str, ( typeof encoding == 'undefined' ? 'base64' : encoding)).toString('utf8')
 	};
 
-module.exports = (server)=>{ // server is passed from the require('')(server) in module.exports
-	wss = new ws.Server({
-		server: server,
-	});
+try{module.exports = server =>{ // server is passed from the require('')(server) in module.exports
+	wss = new ws.Server({ server: server });
 	
-	wss.on('connection',(cli, req)=>{
-		var ID = String(++ conns).padStart(6, 0);
-		
+	wss.on('connection', (cli, req)=>{
 		req.query = (()=>{ var a = req.url.replace(/[\s\S]*?\?/i, '').replace(/\?/gi, '&').split('&'), b = {}; a.forEach(e => { var c = e.split('='); if(c[1] == null)b[c[0]] = null; else b[c[0]] = c[1] });return b })();
 		
 		if(req.query.ws == null) {
@@ -56,38 +47,48 @@ module.exports = (server)=>{ // server is passed from the require('')(server) in
 		
 		var svr = new ws(wsURL);
 		
-		svr.on('error',err=>{
+		svr.on('error', err =>{
 			try{
 				cli.close(1011); // SERVER ERROR
-			}catch(err){}
+			}catch(err){
+				svr.close(1006); // CLOSE_ABNORMAL
+			}
 		});
 		
-		cli.on('error',()=>{
+		cli.on('error', err =>{
 			try{
 				svr.close(1001); // CLOSE_GOING_AWAY
-			}catch(err){}
+			}catch(err){
+				svr.close(1006); // CLOSE_ABNORMAL
+			}
 		});
 		
-		svr.on('message',msg=>{
+		svr.on('message', msg=>{
 			try{
 				cli.send(msg);
 			}catch(err){}
 		});
 		
-		cli.on('message',msg=>{
+		cli.on('message', msg=>{
 			try{
 				svr.send(msg);
 			}catch(err){}
 		});
-		svr.on('close',e=>{
+		
+		svr.on('close', code=>{
 			try{
-				cli.close(e);
-			}catch(err){}
+				cli.close(code);
+			}catch(err){
+				cli.close(1006); // CLOSE_ABNORMAL
+			}
 		});
-		cli.on('close',e=>{
+		
+		cli.on('close', code=>{
 			try{
-				svr.close(e);
-			}catch(err){}
+				svr.close(code);
+			}catch(err){
+				svr.close(1006); // CLOSE_ABNORMAL
+			}
 		});
 	});
-}
+}}catch(err){}

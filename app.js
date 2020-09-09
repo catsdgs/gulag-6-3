@@ -22,13 +22,15 @@ var workers = {
 		sessions: {},
 		data: {
 			type: 'workerData',
-			banned_ua: fs.readFileSync('banned_ua.txt', 'utf8'),
+			banned_ua: fs.readFileSync('useragents.txt', 'utf8'),
 			port: process.env.PORT || config.webserver.port,
 		}
 	},
 	cluster_stderr = new stream.Transform({ decodeStrings: false }),
 	makeWorker = (i)=>{
 		if(config.workers.max_errors < workers.errors )return console.log('Error count at ' + config.workers.max_errors + ', refusing to create more workers..');
+		
+		process.env.NODE_ENV = 'production'
 		
 		cluster.setupMaster({
 			exec: 'server.js',
@@ -121,8 +123,6 @@ setInterval(()=>{
 		}
 	});
 }, 5000);
-
-require('./url-manager.js');
 
 (async()=>{
 	// we need the IP address to filter out on websites such as whatsmyip.org and other things

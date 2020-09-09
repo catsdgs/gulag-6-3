@@ -7,19 +7,19 @@
 		<meta name="description" content="Powerful web proxy">
 		<meta name="keywords" content="Unblocker, Powermouse, TitaniumNetwork">
 		<meta name="author" content="Divide">
-		<meta property='og:image' content='/pm-cgi/banner.png'>
+		<meta property='og:image' content='/pm-cgi/src/banner.webp'>
 		<meta name='twitter:card' content='summary_large_image'>
 		<link type="image/x-icon" rel="shortcut icon" href='/favicon.ico'>
-		<link rel='stylesheet' href='/pm-cgi/main.css'>
+		<link rel='stylesheet' href='/pm-cgi/src/main.css'>
 	</head>
 	<body>
 		<div class='wrapper'>
 			<div class='head'>
 				<a class='header ns' href='/'>powerMouse</a>
-				<a draggable='false' href='https://github.com/vibedivide/powermouse'><div class='ns git'>Fork us on GitHub</div></a>
+				<a href='https://github.com/vibedivide/powermouse'><button class='ns git'></button></a>
 			</div>
 			<div class='content'>
-				<form id='field' action='/session-url' method='POST'>
+				<form class='field' action='/session-url' method='POST'>
 					<input name='url' class='form-text input-url' type='text' autocomplete='off' placeholder='https://www.bing.com/' required>
 					<button type='submit' class='btn btn-blu visit'>Go</button>
 					<div class='tld-autofill'>
@@ -37,6 +37,6 @@
 				</div>
 			</div>
 		</div>
-		<script type='text/javascript' src='/pm-cgi/link-gen.js'></script>
+		<script type='text/javascript' src='/pm-cgi/js/sessions.js'></script>
 	</body>
 </html>
