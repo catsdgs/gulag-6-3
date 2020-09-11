@@ -21,7 +21,7 @@ var data = JSON.parse(decodeURI(atob(document.currentScript.getAttribute('data')
 	proxify_url = (url, encode = true)=>{ // by default, encode the url
 		if(typeof url != 'string')return url;
 		
-		if(url.match(/^(?=moz-|blob:|javascript:|data:|about:)/gi))return url; // data urls
+		if(url.match(/^(?=moz-|chrome|blob:|javascript:|data:|about:)/gi))return url; // data urls
 		
 		var pmDirectory = pm_url.href.replace(/(.*?\/)[^\/]*?$/gi, '$1'); // https://google.com/bruh/ok.html => https://google.com/bruh/
 		
@@ -32,8 +32,6 @@ var data = JSON.parse(decodeURI(atob(document.currentScript.getAttribute('data')
 		//   /bruh => /https://pm_url-domain.tld/bruh
 		
 		url = url.replace(/^\/(?!.{3,}:\/\/)\/?/gi, pm_url.origin + '/'); 
-		
-		if(url == null)url = '';
 		
 		/* bruh => /https://pm_url-domain.tld/bruh
 		// notice the lack of a / at the start
@@ -113,7 +111,7 @@ window.fetch = new Proxy(window.fetch, {
 
 XMLHttpRequest.prototype.open = new Proxy(XMLHttpRequest.prototype.open, {
 	apply(target, thisArg, argArray){
-		// proxify url
+		// proxify urls that are not part of pm-cgi
 		if(!argArray[1].match(/^\/pm-cgi\//gi))argArray[1] = proxify_url(argArray[1], false)
 		
 		target.apply(thisArg, argArray);
@@ -162,7 +160,7 @@ document.createElement = new Proxy(document.createElement, {
 				
 				break
 			case'a':
-				element.addEventListener('mouseover', ()=>{
+				/*element.addEventListener('mouseover', ()=>{
 					var href = element.getAttribute('href'),
 						old_href = href;
 					
@@ -173,7 +171,7 @@ document.createElement = new Proxy(document.createElement, {
 					href = proxify_url(href, false); // proxify it without encoding 
 					
 					if(href != old_href)element.setAttribute('href', href); // change the attribute if theres any actual difference
-				});
+				});*/
 				
 				break
 			case'script':
@@ -201,14 +199,6 @@ Element.prototype.setAttribute = new Proxy(Element.prototype.setAttribute, {
 				}
 				
 				break
-			case'xlink:href':
-			case'data-src': // funky google thing!
-				
-				if(!target_value.startsWith(location.origin))target_value = proxify_url(target_value);
-				
-				return thisArg.style['background-image'] = 'url("' + target_value + '")'
-				
-				break
 		}
 		
 		target.apply(thisArg, [target_class, target_value]);
@@ -219,9 +209,7 @@ Element.prototype.appendChild = new Proxy(Element.prototype.appendChild, {
 	apply(target, thisArg, [node]){
 		switch(node.nodeName.toLowerCase()){
 			case 'iframe':
-				if(!node.src && node.contentWindow){ // remove iframe function protection junk
-					node.contentWindow.fetch = window.fetch;
-				}
+				if(!node.src && node.contentWindow)node.contentWindow.fetch = window.fetch;
 				
 				var src = node.getAttribute('src');
 				
@@ -236,14 +224,14 @@ Element.prototype.appendChild = new Proxy(Element.prototype.appendChild, {
 				}
 				
 				break
-			case 'link':
+			/*case 'link':
 				var href = node.getAttribute('href');
 				
 				if(href != null){
 					if(proxify_url(href) != href)node.setAttribute('href', proxify_url(href) );
 				}
 				
-				break
+				break*/
 		}
 		
 		return target.apply(thisArg, [node]);
@@ -280,21 +268,11 @@ window.Image = class extends Image {
 		img.addEventListener('loadstart', load_start_callback);
 		
 		if(img.parentNode)img = new Proxy(img, {
-			get(target, prop, receiver){
-				var ret;
-				
-				try { ret = Reflect.get(...arguments);
-				}catch(err){ ret = target[prop] }
-				
-				return ret
-			},
+			get: (target, prop, receiver) => Reflect.get(target, prop, receiver),
 			set(obj, prop, value){
-				if(arguments[1] == 'src' && arguments[2])arguments[2] = proxify_url(arguments[2]);
+				if(prop == 'src' && value)value = proxify_url(value);
 				
-				arguments[0][arguments[1]] = arguments[2]
-				
-				// indicate success?
-				return true
+				return Reflect.set(obj, prop, value);
 			}
 		});
 		
@@ -343,18 +321,57 @@ history.replaceState = new Proxy(history.replaceState, {
 	}
 });
 
-window.addEventListener('DOMContentLoaded', ()=>{
-	Array.from(document.querySelectorAll('style[data-href]')).forEach(element=>{
-		var g_href = element.getAttribute('data-href'); // weird google href?
-		
-		if(g_href != null){
-			var new_stylesheet = document.createElement('link');
-			
-			element.parentNode.replaceChild(new_stylesheet, element);
-			
-			new_stylesheet.setAttribute('rel', 'stylesheet');
-			
-			new_stylesheet.setAttribute('href', g_href);
+setInterval(()=> document.querySelectorAll('*[data-href], *[data-src], *[x-link], *[src]').forEach(node => {
+	Array.from(node.attributes).forEach(attr => {
+		switch(attr.name){
+			case'src':
+				// already modified?
+				if(attr.value.startsWith(location.origin + '/' + pm_url.origin))return;
+				
+				node.setAttribute(attr.name, proxify_url(attr.value));
+				
+				break
+			case'href':
+				if(attr.value.startsWith(location.origin + '/' + pm_url.origin))return;
+				
+				node.setAttribute(attr.name, proxify_url(attr.value, false));
+				
+				break
+			case'xlink:href':
+			case'data-src': // funky google thing!
+				if(!attr.value.startsWith(location.origin + '/' + pm_url.origin))node.setAttribute(attr.name, proxify_url(attr.value));
+				
+				return node.style['background-image'] = 'url(\'' + attr.value + '\')'
+				
+				break
+			case'data-src': // stylesheet that is messed up
+				
+				var new_ss = document.createElement('link');
+				
+				node.parentNode.replaceChild(new_ss, node);
+				new_ss.setAttribute('rel', 'stylesheet');
+				new_ss.setAttribute('href', attr.value);
+				
+				break
+			case'style':
+				var old_val = attr.value,
+					new_val = old_val.replace(/((?::\s*|\s)url\()("|')?(?=[^\+])([\s\S]*?)\2(\))/gi, (match, p1, p2, p3, p4, offset, string)=>{
+						var part = p1,
+							quote = (p2 == undefined ? '' : p2),
+							toproxy_url = p3,
+							end_part = p4;
+						
+						toproxy_url = proxify_url(toproxy_url)
+						
+						return part + quote + toproxy_url + quote + end_part
+					});
+				
+				if(old_val != new_val)node.setAttribute(attr.name, new_val);
+				
+				break
 		}
+		
+		// remove from memory
+		attr = null
 	});
-});
+}), 125);

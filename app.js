@@ -8,49 +8,33 @@ const fs = require('fs'),
 	fetch = require('node-fetch'),
 	config = JSON.parse(fs.readFileSync('config.json','utf8'));
 
-var workers = {
-		broadcast: (data)=>{
-			workers.instances.forEach((e,i)=>{
-				if(e.exitCode == null)return;
-				e.send(data);
-			});
-		},
+var cluster_stderr = new stream.Transform({ decodeStrings: false }),
+	workers = {
+		broadcast: data => workers.instances.forEach((worker, i)=>{
+			if(!worker.exitCode)return;
+			worker.send(data);
+		}),
 		instances: [],
 		online: 0,
-		errors: 0, // set this to 0 every 2 seconds 
 		count: 0, // this gets set later, the amount of instances to create
 		sessions: {},
 		data: {
-			type: 'workerData',
-			banned_ua: fs.readFileSync('useragents.txt', 'utf8'),
+			type: 'worker_data',
+			useragents: fs.readFileSync('useragents.txt', 'utf8'),
 			port: process.env.PORT || config.webserver.port,
 		}
 	},
-	cluster_stderr = new stream.Transform({ decodeStrings: false }),
-	makeWorker = (i)=>{
-		if(config.workers.max_errors < workers.errors )return console.log('Error count at ' + config.workers.max_errors + ', refusing to create more workers..');
-		
-		process.env.NODE_ENV = 'production'
-		
-		cluster.setupMaster({
-			exec: 'server.js',
-			args: ['--use', (config.ssl == true ? 'http' : 'https --use http') ],
-			stdio: ['ignore', process.stdout, 'pipe', 'ipc'],
-		});
-		
+	makeWorker = id =>{
 		var worker = cluster.fork();
 		
-		workers.instances[i] = worker
-		
-		worker.process.stderr.pipe(cluster_stderr); // pipe errors
-		
-		if(process.env.REPL_OWNER != null)workers.data.port = null; // on repl.it
-		
+		workers.instances[id] = worker
 		worker.send(workers.data);
+		worker.process.stderr.pipe(cluster_stderr); // pipe errors
 		
 		worker.on('message', (data)=>{
 			switch(data.type){
 				case'log':
+					
 					console.log(`Worker PID: ${worker.process.pid}: ${data.value}`)
 					
 					break
@@ -85,30 +69,28 @@ var workers = {
 		worker.once('exit', code => { // exit will only be called once
 			cluster_stderr.eventNames().forEach(event_name =>{
 				if(cluster_stderr.listeners(event_name).length >= 6)cluster_stderr.listeners(event_name).forEach((event, event_index)=>{
-					if(event_index == i){
+					if(event_index == id){
 						cluster_stderr.off(event_name, event);
 					}
 				});
 			});
 			
-			if(code != 0 && code != null){
-				//workers.errors++
-				
-				workers.instances[i] = null
+			if(code){
+				workers.instances[id] = null
 				
 				// remove from online array
 				workers.online--
 				
-				makeWorker(i); // make a new worker in its place
+				makeWorker(id); // make a new worker in its place
 			}
 		});
 	};
 
 if(config.proxy.vpn.enabled)console.log('Using socks5 proxy: socks5://' + config.proxy.vpn.socks5);
 
+if(process.env.REPL_OWNER != null)workers.data.port = null; // on repl.it
+
 setInterval(()=>{
-	workers.errors = 0
-	
 	Object.entries(workers.sessions).forEach((e,i)=>{
 		var session=e[1];
 		var key=e[0];
@@ -125,30 +107,23 @@ setInterval(()=>{
 }, 5000);
 
 (async()=>{
-	// we need the IP address to filter out on websites such as whatsmyip.org and other things
+	process.env.NODE_ENV = 'production'
 	
-	workers.data.ip = await fetch('https://api.ipify.org/').then(res => res.text()).catch((err)=> ipv = '127.0.0.1' )
-	workers.data.tlds = /./g
-	workers.data.tldList = []
-	
-	var tldsv = await fetch('https://publicsuffix.org/list/effective_tld_names.dat').then(res => res.text()).catch((err)=> tldsv = '.com\n.org\n.net' );
-	
-	tldsv.split('\n').forEach((e,i,a)=>{
-		if(!e.match(/(?:\*|\/\/|\s|\.)/gi) && e.length>=1){
-			workers.data.tldList.push(e);
-			workers.data.tlds += e.replace('.','\\.') + '|'
-		}
+	cluster.setupMaster({
+		exec: 'server.js',
+		args: ['--use', 'http', '--use', 'http'],
+		stdio: ['ignore', process.stdout, 'pipe', 'ipc'],
 	});
-	workers.data.tldRegex = new RegExp(`\\.(?:${workers.data.tlds.substr(0,workers.data.tlds.length-1)})$`,'gi');
 	
-	/*if(process.env.DYNO != null){ // on heroku
-		workers.count = 1
-	}else */
-	if(config.workers.manual_amount.enabled){ // amount was manually set
-		workers.count = config.workers.manual_amount.count
-	}else if(config.workers.enabled){ // normal, use amount of cpu threads
-		workers.count = os.cpus().length
-	}else workers.count = 1
+	// we need the IP address to filter out on websites such as whatsmyip.org and other things
+	workers.data.ip = await fetch('https://api.ipify.org/').then(res => res.text()).catch(err => '127.0.0.1' )
+	
+	// amount was manually set
+	if(config.workers.manual_amount.enabled)workers.count = config.workers.manual_amount.count
+	// normal, use amount of cpu threads
+	else if(config.workers.enabled)workers.count = os.cpus().length
+	// workers disabled
+	else workers.count = 1
 	
 	for(var i = 0; i < workers.count; i++)makeWorker(i);
 })();
@@ -156,18 +131,19 @@ setInterval(()=>{
 rl.init();
 rl.setPrompt('> ');
 rl.on('line', (line)=>{
-	var args=line.split(' '),
-		mts=line.substr(args[0].length+1,128);
+	var args = line.split(' '),
+		mts = args.slice(1).join(' ');
 	
 	switch(args[0]){
 		case'run': // debugging
-			try{console.log(util.format(eval(mts)))}
-			catch(err){console.log(util.format(err))};
+			try{
+				console.log(util.format(eval(mts)));
+			}catch(err){
+				console.log(util.format(err))
+			}
+			
 			break
-			
 		case'reload':
-			workers.errors = 0 // allow new ones to be created
-			
 			cluster_stderr.eventNames().forEach(event_name =>{ // remove listeners from error logging
 				cluster_stderr.removeAllListeners(event_name);
 			});
@@ -187,25 +163,29 @@ rl.on('line', (line)=>{
 			});
 			
 			break
+		case'stop':
+		case'exit':
 			
-		case'stop':case'exit':
 			process.exit(0);
-			break
 			
+			break
 		default:
-			if(!args[0])return; // if slap enter key
+			if(!args[0])return;
+			
 			console.log(path.basename(__filename) + ' ' + args[0] + ': command not found');
+			
 			break
 	}
 });
 
-rl.on('SIGINT',(rl)=>process.exit(0)); // ctrl+c quick exit
+rl.on('SIGINT', rl => process.exit(0)); // ctrl+c quick exit
 
-cluster_stderr._transform = function(chunk, encoding, done) {
-	var data = chunk.toString();
+cluster_stderr._transform = (chunk, encoding, done)=>{
+	var data = chunk.toString(),
+		timestamp = new Date();
 	
-	fs.appendFileSync('./error.log', data);
-	console.log('Encountered error, check error.log\n' + data);
+	fs.appendFileSync('./error.log', timestamp + '\n' + data);
+	console.log(timestamp.toUTCString() + ' : encountered error, check error.log\n' + data);
 	
-	return done(null, data);
+	done(null, data);
 }

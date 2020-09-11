@@ -9,12 +9,9 @@ var fancyButtons = eval(atob('WwoJCVsnUmVkZGl0Jywnb2xkLnJlZGRpdC5jb20nLCdvcmFuZ2
 			
 			chars.forEach((chr, chr_index)=>{
 				var entity = '&#' + chr.charCodeAt();
-				output += '<span style="white-space: nowrap">'
-				
-				if(chr_index == 0 || chr_index == word.length )output += entity;
-				else output += '&#8203;<span style="display:none;font-size:0px;">&#8203;...' + _cihash + '</span>' + entity + '&#8203;';
-				
-				output += '</span>'
+				// chr_index is 0 or is the last one
+				if(!chr_index || chr_index == word.length )output += '<span style="white-space: nowrap">' + entity + '</span>';
+				else output += '<span style="white-space: nowrap">&#8203;<span style="display:none;font-size:0px;">&#8203;...' + _cihash + '</span>' + entity + '&#8203;</span>';
 			});
 			
 			if(word_index != words.length - 1)output += ' '
@@ -26,12 +23,7 @@ var fancyButtons = eval(atob('WwoJCVsnUmVkZGl0Jywnb2xkLnJlZGRpdC5jb20nLCdvcmFuZ2
 	url_fill = document.querySelector('.tld-autofill'),
 	activeElement = prevActiveEle = document.body,
 	buttons_container = document.querySelector('.button_container'),
-	getTimeStr = ud =>{
-		var s = ud.getSeconds().toFixed(),
-			m = ud.getMinutes().toFixed(),
-			h = ud.getUTCHours().toFixed();
-		return h + ' hours, ' + m + ' minutes, ' + s + ' seconds'
-	};
+	getTimeStr = ud => ud.getUTCHours().toFixed() + ' hours, ' + ud.getMinutes().toFixed() + ' minutes, ' + ud.getSeconds().toFixed() + ' seconds';
 
 fancyButtons.forEach(e=>{
 	var button = document.createElement('div');
