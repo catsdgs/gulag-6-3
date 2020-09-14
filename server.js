@@ -107,7 +107,126 @@ var config = JSON.parse(fs.readFileSync('config.json','utf-8')),
 		
 		return url
 	},
-	proxyAgent = (config.proxy.vpn.enabled == true ? new socksProxyAgent('socks5://' + config.proxy.vpn.socks5) : null)
+	rewrite_body = (data, res) => {
+		if(data.send_data.constructor == Buffer)data.send_data = data.send_data.toString('utf8');
+		
+		// youtube apparently needs the servers ip in the page so only change ip on every other page
+		if(data.url.hostname != 'www.youtube.com'){
+			data.send_data.replace(new RegExp(worker_data.ip, 'gi'), randomIP());
+			data.send_data.replace(new RegExp(btoa(worker_data.ip), 'gi'), btoa(randomIP()));
+		}
+		
+		if(!data.contentType.startsWith('text/html'))return;
+		
+		var preload_script_data = { // stuff we send to the script
+				pm_url: data.url.href,
+				pm_session: res.req.session.pm_session,
+				pm_session_url: res.req.session.pm_session_url,
+				urlrewrite_date: fs.statSync('./public/pm-cgi/js/urlrewrite.js').mtimeMs,
+				inject_date: fs.statSync('./public/pm-cgi/js/inject.js').mtimeMs,
+			},
+			url_dir = data.url.href.replace(/(.*?\/)[^\/]*?$/gi, '$1'), // https://domain.tld/directory/page.html => https://domain.tld/directory/
+			rewrites = [
+				// replace "//www.domain.com" => "https://www.domain.com"
+				[/(\s[\D\S]*?\s*?=\s*?(\"|\'))\/{2}([\s\S]*?)\2/gi, '$1https://$3$2'],
+				
+				// strange attribute names
+				[/(xlink:)(href)/gi, '$2'],
+				
+				// /websitelocalfilething => https://domain.tld/websitelocalfilething 
+				[/(\s{1,})((?:target|href|data-href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))((?!data:|javascript:)\/[\s\S]*?)((?:"|'))/gi, (match, p1, p2, p3, p4)=>{
+					var rurl = data.url.origin + p3;
+					
+					return p1 + p2 + rurl + p4
+				}],
+				
+				// ./img/bruh => https://domain.tld/directory/img/bruh
+				[/(\s{1,})((?:target|href|data-href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))\.\/([\s\S]*?)((?:"|'))/gi,'$1$2' + url_dir + '$3$4'],
+				
+				// this does all the proxying magic, "https://www.domain.tld => "https://localhost/https://www.domain.tld
+				[/(?<!(?:xmlns|xmlns:web)\s*?=)("|\')(?=https?:\/\/)(.*?)\1/gi, (match, p1, p2, p3, offset, string)=>{
+					var quote = p1,
+						toproxy_url = p2,
+						output = quote + toproxy_url + quote;
+					
+					if(toproxy_url.startsWith(res.req.full_url.origin))return output; // dont reproxy urls
+					
+					toproxy_url = proxify_url(res.req.full_url, data.url, toproxy_url, false);
+					
+					output = quote + toproxy_url + quote;
+					
+					return output
+				}],
+				
+				// integrity and nonce cant be done
+				[/ (integrity|nonce)[\s]*?=[\s]*?".*?" ?/gi, ''],
+				[/(?:document|window|location|window.location|document.location)(\.(?:href|host|hostname|pathname|port|protocol|hash|search))/gi, 'pm_url$1'],
+				
+				// replace title with Right-To-Left Override
+				[/<title.*?>.*?<\/ ?title>/gi, '<title>\u202E</title>'],
+				
+				// replace favicon with default one
+				[/("|').[^"']*\.ico(?:\?.*?)?("|')/gi, '$1/favicon.ico$2'],
+				
+				// prevent popups, newtabs, or redirecting iframes
+				[/("|')_(?:blank|top|parent)\1/gi, '$1_self$1'],
+				
+				// inject code
+				[/(<script(?:.*?)>(?:(?!<\/script>)[\s\S])*<\/script>|<\/head>)/i, '<script data="' + encodeURI(btoa(JSON.stringify( preload_script_data, null ))) + '" src="/pm-cgi/js/preload.js?' + fs.statSync('./public/pm-cgi/js/preload.js').mtimeMs + '"></script>$1'],
+				
+				// replace like the session url is equal to https://domain.tld/ and replace all links to the session url with the /ses/
+				res.req.session.pm_session ? [new RegExp(`("|')${ res.req.full_url.origin }\\/${ res.req.session.pm_session_url }(.*?)\\1`,'gi'), '$1/ses/$2$1'] : null,
+				
+				// debug info
+				res.req.query.debug == 'true' ? [/<\/body>/gi, `
+				<!-- [POWERMOUSE STATS]
+				Worker PID: ${process.pid}
+				Port: ${worker_data.port}
+				Host: ${os.hostname()}
+				--></body>`.replace(/\t/g, '')] : null,
+				
+				// API for discord.com is strange but discordapp.com works 
+				data.url.host == 'discord.com' ? [/API_ENDPOINT: '\/{2}discord.com\/api'/gi, "API_ENDPOINT: '" + res.req.full_url.origin + "/https://discordapp.com/api'"] : null,
+				data.url.host == 'discord.com' ? [/<\/body>/gi, '<script type="text/javascript" src="/pm-cgi/js/discord.js"></script>'] : null,
+				
+				data.contentType.startsWith('text/css') ? [/((?::\s*|\s)url\()("|')?(?=[^\+])([\s\S]*?)\2(\))/gi, (match, p1, p2, p3, p4, offset, string) => {
+					var part = p1,
+						quote = (p2 == undefined ? '' : p2),
+						toproxy_url = p3,
+						end_part = p4;
+					
+					toproxy_url = proxify_url(res.req.full_url, data.url, toproxy_url, true)
+					
+					return part + quote + toproxy_url + quote + end_part
+				}] : null,
+			];
+		
+		rewrites.filter(entry => entry).forEach(entry => {
+			data.send_data = data.send_data.replace(entry[0], entry[1]);
+		});
+		
+		try{ // ATTEMPT to minify content, if this fails then it is not needed
+			if(data.contentType.startsWith('text/css'))htmlMinify.minify('<style>' + data.send_data + '</style>', {minifyCSS: true}).replace(/(?:^<style>|<\/style>$)/gi,'');
+			else data.send_data = htmlMinify.minify(data.send_data, {minifyCSS: true, minifyJS: true});
+		}catch(err){}
+	},
+	compress_data = async data => {
+		try{switch(data.contentType.match(/^[^\s\/]*?\/([^\s\/;]*)/gi)[0]){
+			// case'image/webp': break // cannot double-compress without losing alpha
+			case'image/jpeg':
+			case'image/jpg':
+				
+				data.send_data = await image.jpeg({ quality: 7 })(data.send_data);
+				
+				break
+			case'image/png':
+				
+				data.send_data = await image.webp({ quality: 25, alphaQuality: 75 })(data.send_data);
+				
+				break
+		}}catch(err){}
+	},
+	proxyAgent = config.proxy.vpn.enabled ? new socksProxyAgent('socks5://' + config.proxy.vpn.socks5) : null,
 	sessions = worker_data = {};
 
 process.on('message',(data)=>{
@@ -231,44 +350,6 @@ app.get('/stats', (req, res, next)=>{
 	res.send(JSON.stringify({ uptime: process.uptime().toString() }))
 });
 
-app.get('/suggestions', (req, res) => { // autocomplete urls
-	if (typeof req.query.input != 'string' || req.query.input == '') return gen_msg(res, 400, 'Invalid domain input');
-	var suggestions = [],
-		index = 0,
-		tldCheck, sorted_list = {},
-		matched = req.query.input.match(/\..{2,3}(?:\.?.{2,3})?/gim);
-	
-	res.status(200);
-	res.contentType('application/json');
-	
-	if(matched == null || matched[0] == null)return res.send(JSON.stringify(['com', 'net', 'org', 'io', 'dev']))
-	else tldCheck = matched[0].substr(1);
-	
-	worker_data.tldList.forEach(entry => sorted_list[((value1, value2) => {
-		var equivalency = 0,
-			minLength = (value1.length > value2.length) ? value2.length : value1.length,
-			maxLength = (value1.length < value2.length) ? value2.length : value1.length;
-		
-		for (var i = 0; i < minLength; i++)
-			if (value1[i] == value2[i]) equivalency++;
-		
-		var weight = equivalency / maxLength;
-		
-		return weight * 100;
-	})(tldCheck, entry)] = entry);
-	
-	Object.entries(sorted_list)
-		.sort((a, b) => a[0] - b[0])
-		.reverse()
-		.forEach((e, i) => {
-			if (index > 5) return;
-			index++;
-			suggestions.push(e[1]);
-		});
-	
-	return res.send(JSON.stringify(suggestions));
-});
-
 app.post('/session-url', (req,res,next)=>{
 	// check for no url at all or a bad url
 	if(req.body.url == null || (typeof req.body.url == 'string' && req.body.url.length == undefined))return gen_msg(res, 400, 'Specify a url in your post body');
@@ -309,8 +390,8 @@ app.use(async (req,res,next)=>{
 			},
 			return_headers: {},
 			clearVariables: ()=> Object.keys(data).forEach(key => delete data[key]),
-		},
-		url;
+			url: '',
+		};
 	
 	/* ignore if the url is /https:/domain.tld
 	// and not /https://domain.tld
@@ -322,7 +403,7 @@ app.use(async (req,res,next)=>{
 		var tmp_pm_url = validURL(atob(req.query.pm_url)) || validURL(req.query.pm_url);
 		
 		// /?pm_url=Z28gYXdheSBub29i (base64) urls
-		url = tmp_pm_url ? new URL(tmp_pm_url) : '';
+		data.url = tmp_pm_url ? new URL(tmp_pm_url) : '';
 	}else if(req.full_url.pathname.startsWith('/ses/') && !req.session.pm_session){
 		// visiting /ses/ without a session url
 		return gen_msg(res, 403, 'You need a url session to access this page.')
@@ -330,12 +411,12 @@ app.use(async (req,res,next)=>{
 		// session url is set properly
 		var session_url = new URL(req.session.pm_session_url);
 		
-		url = new URL(session_url.origin + '/' + req.full_url.pathname.replace(/^\/ses\//gi, ''));
+		data.url = new URL(session_url.origin + '/' + req.full_url.pathname.replace(/^\/ses\//gi, ''));
 	}catch(err){
 		return gen_msg(res, 400, err.message);
 	}else try{
 		// visting url like /https://domain.tld/page.html, we remove the / from the start and have a url to proxy
-		url = new URL(req.full_url.href.substr(req.full_url.origin.length + 1));
+		data.url = new URL(req.full_url.href.substr(req.full_url.origin.length + 1));
 	}catch(err){
 		/* fallback to req.sesison.ref
 		// req.session.ref is only set when the content-type is text/html
@@ -357,8 +438,8 @@ app.use(async (req,res,next)=>{
 	// not a special url modifying mode
 	if(!req.session.pm_session){
 		// checking the url will give a different result than the one in the request
-		if(req.url.substr(1 + url.origin.length) != url.href.substr(url.origin.length)){
-			return res.redirect(302, req.full_url.origin + '/' + url.href) && data.clearVariables();
+		if(req.url.substr(1 + data.url.origin.length) != data.url.href.substr(data.url.origin.length)){
+			return res.redirect(302, req.full_url.origin + '/' + data.url.href) && data.clearVariables();
 		}
 	}
 	
@@ -367,9 +448,9 @@ app.use(async (req,res,next)=>{
 	// prevent casual email password login as it will require a captcha which this proxy cannot do
 	*/
 	
-	if(url.hostname == 'discordapp.com' && url.pathname == '/api/v8/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login button to access discord' }));
+	if(data.url.hostname == 'discordapp.com' && data.url.pathname == '/api/v8/auth/login')return res.status(400).contentType('application/json; charset=utf-8').send(JSON.stringify({ email: 'Use the QR code scanner or token login button to access discord' }));
 	
-	if(url.pathname.match(/^(?:\/|\/new)$/gi) && url.hostname == 'discord.com')return res.redirect(307, req.full_url.origin + '/' + url.origin + '/login') && data.clearVariables();
+	if(data.url.pathname.match(/^(?:\/|\/new)$/gi) && data.url.hostname == 'discord.com')return res.redirect(307, req.full_url.origin + '/' + data.url.origin + '/login') && data.clearVariables();
 	
 	/* make a dns lookup to the url hostname, if it resolves to a private ip address such as 192.168.0.1 then
 	** we can prevent the request
@@ -377,11 +458,11 @@ app.use(async (req,res,next)=>{
 	** instead of node-fetch giving an error
 	*/
 	
-	if(url.host)await dns.lookup(url.host, (err, address, family) => {
+	if(data.url.host)await dns.lookup(data.url.host, (err, address, family) => {
 		if(err)switch(err.errno){
 			case -3008:
 				
-				return gen_msg(res, 400, 'DNS lookup failed for host: ' + url.host + ' (' + err.code + ')') && data.clearVariables()
+				return gen_msg(res, 400, 'DNS lookup failed for host: ' + data.url.host + ' (' + err.code + ')') && data.clearVariables()
 				
 				break
 			default:
@@ -389,7 +470,7 @@ app.use(async (req,res,next)=>{
 				return gen_msg(res, 400, err.message) && data.clearVariables()
 				
 				break
-		}else if(!config.proxy.private_ips && address.match(/^(?:192.168.|172.16.|10.0.|127.0)/gi))return gen_msg(res, 403, 'Please don\'t abuse this service! (' + url.host + ' points to ' + address + ')');
+		}else if(!config.proxy.private_ips && address.match(/^(?:192.168.|172.16.|10.0.|127.0)/gi))return gen_msg(res, 403, 'Please don\'t abuse this service! (' + data.url.host + ' points to ' + address + ')');
 	});
 	
 	// pass the req.body as a string as most server sided scripts will parse
@@ -403,15 +484,24 @@ app.use(async (req,res,next)=>{
 		
 		// do not include cdn- or cloudflare- headers
 		
-		if(!value.includes(url.host) && !name.match(skip_header_regex))data.fetch_headers[name] = value;
+		if(!value.includes(data.url.host) && !name.match(skip_header_regex))data.fetch_headers[name] = value;
 	});
 	
-	data.fetch_headers['referrer'] = data.fetch_headers['referer'] = url.href
+	if(data.url.host == 'matchmaker.krunker.io'){
+		var game_url = data.fetch_headers.krunker_game_url == null ? '' : data.fetch_headers.krunker_game_url;
+		
+		if(data.fetch_headers.origin)data.fetch_headers.origin = data.fetch_headers.origin.replace('https://kru2.sys32.dev', 'https://krunker.io');
+		if(data.fetch_headers.referer)data.fetch_headers.referer = data.fetch_headers.referer.replace('https://kru2.sys32.dev', 'https://krunker.io');
+	}else{
+		if(data.fetch_headers['referrer'])data.fetch_headers['referrer'] = data.url.href
+		if(data.fetch_headers['referer'])data.fetch_headers['referer'] = data.url.origin
+		if(data.fetch_headers['origin'])data.fetch_headers['origin'] = data.url.origin
+	}
 	
 	data.fetch_options['headers'] = data.fetch_headers;
 	
 	try{
-		data.response = await fetch(url, data.fetch_options);
+		data.response = await fetch(data.url, data.fetch_options);
 		data.send_data = await data.response.buffer();
 	}catch(err){
 		if(res.headersSent)return;
@@ -457,148 +547,35 @@ app.use(async (req,res,next)=>{
 		}
 	});
 	
-	if(/^20/.test(data.response.status) && data.contentType.startsWith('text/html'))req.session.ref = url.href;
+	if(/^20/.test(data.response.status) && data.contentType.startsWith('text/html'))req.session.ref = data.url.href;
 	
 	res.status(data.response.status);
 	
 	// check if mime.getType will return something with font/ to avoid proxying fonts
 	
-	if(data.contentType.startsWith('application/x-shockwave-flash') || (mime.getType(url.href) != null && mime.getType(url.href).match(/^(?:font|audio|video)\//gi))){
+	if(data.contentType.startsWith('application/x-shockwave-flash') || (mime.getType(data.url.href) != null && mime.getType(data.url.href).match(/^(?:font|audio|video)\//gi))){
 		return res.set('Cache-Control','max-age=31536000') && res.send(data.send_data);
 	}
 	
 	if(data.contentType.startsWith('image')){
 		res.set('Cache-Control','max-age=31536000');
 		
-		try{switch(data.contentType.match(/^[^\s\/]*?\/([^\s\/;]*)/gi)[0]){
-			// case'image/webp': break // cannot double-compress without losing alpha
-			case'image/jpeg':
-			case'image/jpg':
-				
-				data.send_data = await image.jpeg({ quality: 7 })(data.send_data);
-				
-				break
-			case'image/png':
-				
-				data.send_data = await image.webp({ quality: 25, alphaQuality: 75 })(data.send_data);
-				
-				break
-		}}catch(err){}
+		await compress_data(data);
 	}
 	
-	if(!data.contentType.match(/(text|application)\//i)){
-		return res.send(data.send_data) && data.clearVariables();
-	}else{
-		var urlDirectory = url.href.replace(/(.*?\/)[^\/]*?$/gi, '$1'); // https://domain.tld/directory/page.html => https://domain.tld/directory/
-		
-		data.send_data = data.send_data.toString('utf8'); // convert buffer to string
-		
-		try{
-			if(data.contentType.startsWith('text/css'))data.send_data = 
-			htmlMinify.minify('<style>' + data.send_data + '</style>', {minifyCSS: true, }).replace(/(?:^<style>|<\/style>$)/gi,'') // cool trick to get htmlMinify to minify a css file and have it display correctly
-			.replace(/((?::\s*|\s)url\()("|')?(?=[^\+])([\s\S]*?)\2(\))/gi, (match, p1, p2, p3, p4, offset, string)=>{
-				var part = p1,
-					quote = (p2 == undefined ? '' : p2),
-					toproxy_url = p3,
-					end_part = p4;
-				
-				toproxy_url = proxify_url(req.full_url, url, toproxy_url, true)
-				
-				return part + quote + toproxy_url + quote + end_part
-			});
-		}catch(err){}
-		
-		// youtube apparently needs the servers ip in the page so only change ip on every other page
-		if(url.hostname != 'www.youtube.com')data.send_data = data.send_data
-		.replace(new RegExp(worker_data.ip, 'gi'), randomIP())
-		.replace(new RegExp(btoa(worker_data.ip), 'gi'), btoa(randomIP()));
-		
-		if(res && !res.headerSent && data.contentType.startsWith('text/html')){
-			data.preload_script_data = { // stuff we send to the script
-				pm_url: url.href,
-				pm_session: req.session.pm_session,
-				pm_session_url: req.session.pm_session_url,
-				urlrewrite_date: fs.statSync('./public/pm-cgi/js/urlrewrite.js').mtimeMs,
-				inject_date: fs.statSync('./public/pm-cgi/js/inject.js').mtimeMs,
-			}
-			
-			data.send_data = data.send_data
-			// replace "//www.domain.com" => "https://www.domain.com"
-			.replace(/(\s[\D\S]*?\s*?=\s*?(\"|\'))\/{2}([\s\S]*?)\2/gi, '$1https://$3$2')
-			
-			// strange attribute names
-			.replace(/(xlink:)(href)/gi, '$2')
-			
-			// /websitelocalfilething => https://domain.tld/websitelocalfilething 
-			.replace(/(\s{1,})((?:target|href|data-href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))((?!data:|javascript:)\/[\s\S]*?)((?:"|'))/gi, (Match, p1, p2, p3, p4)=>{
-				var rurl = url.origin + p3;
-				
-				return p1 + p2 + rurl + p4
-			})
-			
-			// ./img/bruh => https://domain.tld/directory/img/bruh
-			.replace(/(\s{1,})((?:target|href|data-href|data-src|src|srcset|data|action)\s*?=\s*?(?:"|'))\.\/([\s\S]*?)((?:"|'))/gi,'$1$2' + urlDirectory + '$3$4')
-			
-			// this does all the proxying magic, "https://www.domain.tld => "https://localhost/https://www.domain.tld
-			.replace(/(?<!(?:xmlns|xmlns:web)\s*?=)("|\')(?=https?:\/\/)(.*?)\1/gi, (match, p1, p2, p3, offset, string)=>{
-				var quote = p1,
-					toproxy_url = p2,
-					output = quote + toproxy_url + quote;
-				
-				if(toproxy_url.startsWith(req.full_url.origin))return output; // dont reproxy urls
-				
-				toproxy_url = proxify_url(req.full_url, url, toproxy_url, false);
-				
-				output = quote + toproxy_url + quote;
-				
-				return output
-			})
-			.replace(/ (integrity|nonce)[\s]*?=[\s]*?".*?" ?/gi,'') // integrity and nonce cant be used 
-			.replace(/(?:document|window|location|window.location|document.location)(\.(?:href|host|hostname|pathname|port|protocol|hash|search))/gi,'pm_url$1')
-			
-			// replace title with Right-To-Left Override
-			.replace(/<title.*?>.*?<\/ ?title>/gi,'<title>\u202E</title>')
-			
-			// replace favicon with default one
-			.replace(/("|').[^"']*\.ico(?:\?.*?)?("|')/gi,'$1/favicon.ico$2')
-			
-			// prevent popups, newtabs, or redirecting iframes
-			.replace(/("|')_(?:blank|top|parent)\1/gi,'$1_self$1')
-			
-			// inject code
-			.replace(/(<script(?:.*?)>(?:(?!<\/script>)[\s\S])*<\/script>|<\/head>)/i, '<script data="' + encodeURI(btoa(JSON.stringify( data.preload_script_data, null ))) + '" src="/pm-cgi/js/preload.js?' + fs.statSync('./public/pm-cgi/js/preload.js').mtimeMs + '"></script>$1')
-			;
-			
-			if(req.session.pm_session){
-				// replace like the session url is equal to https://domain.tld/ and replace all links to the session url with the /ses/
-				data.send_data = data.send_data.replace(new RegExp(`("|')${ req.full_url.origin }\\/${ req.session.pm_session_url }(.*?)\\1`,'gi'),'$1/ses/$2$1');
-			}
-			
-			if(typeof req.query.debug == 'string' && req.query.debug == 'true')data.send_data=data.send_data.replace(/<\/body>/gi,`
-			<!-- [POWERMOUSE STATS]
-			Worker PID: ${process.pid}
-			Port: ${worker_data.port}
-			Host: ${os.hostname()}
-			--></body>`.replace(/\t/g, '')); // allow us to have this formatting with indents but hide in result
-			
-			switch(url.host){
-				case'discord.com':
-					data.send_data = data.send_data // hacky discord support
-					// API for discord.com is strange but discordapp.com works 
-					.replace(/API_ENDPOINT: '\/{2}discord.com\/api'/gi, "API_ENDPOINT: '" + req.full_url.origin + "/https://discordapp.com/api'")
-					.replace(/<\/body>/gi, '<script type="text/javascript" src="/pm-cgi/js/discord.js"></script>')
-					;
-					break
-			}
-			
-			// ATTEMPT to minify html content, if this fails then it is not needed
-			try{ data.send_data = htmlMinify.minify(data.send_data, {minifyCSS: true, minifyJS: true});
-			}catch(err){}
-		}
-		
-		try{
-			res.send(data.send_data) && data.clearVariables();
-		}catch(err){ console.err(err); res.send(err.code); }
+	if(data.contentType.match(/^(text)\//i)){
+		// convert buffer to string
+		rewrite_body(data, res);
+	}
+	
+	// res.set('Access-Control-Allow-Origin', '*');
+	
+	try{
+		res.send(data.send_data);
+		data.clearVariables();
+	}catch(err){
+		console.error(err);
+		res.send(err.code);
 	}
 });
 

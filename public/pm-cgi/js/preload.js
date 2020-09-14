@@ -1,105 +1,145 @@
-var data = JSON.parse(decodeURI(atob(document.currentScript.getAttribute('data')))),
-	pm_url = new Proxy(new URL(data.pm_url), {
-		get: function(target, prop, receiver){
-			var ret;
-			
-			if(prop == 'replace'){
-				return function(){
-					if(arguments[0] != null)return location.replace.apply(location, [proxify_url(arguments[0], false)]);
-				}
-			}else try {
-				ret = Reflect.get(...arguments);
-			}catch(err){
-				ret = target[prop]
+var data = JSON.parse(decodeURI(atob(document.currentScript.getAttribute('data'))));
+
+globalThis.pm_url = new Proxy(new URL(data.pm_url), {
+	get(target, prop, receiver){
+		var ret;
+		
+		if(prop == 'replace'){
+			return function(){
+				if(arguments[0] != null)return location.replace.apply(location, [proxify_url(arguments[0], false)]);
 			}
-			
-			return ret
-		},
-		set: _=> true
-	}),
-	pm_log = function(){return console.log('%c[Powermouse]', 'color: #800080;', ...arguments)},
-	proxify_url = (url, encode = true)=>{ // by default, encode the url
-		if(typeof url != 'string')return url;
-		
-		if(url.match(/^(?=moz-|chrome|blob:|javascript:|data:|about:)/gi))return url; // data urls
-		
-		var pmDirectory = pm_url.href.replace(/(.*?\/)[^\/]*?$/gi, '$1'); // https://google.com/bruh/ok.html => https://google.com/bruh/
-		
-		// //ads.google.com => https://localhost/https://google.com
-		
-		url = url.replace(/(^\/{2}|^.{3,}:\/.{3,}:\/\/)/gi, 'https://');
-		
-		//   /bruh => /https://pm_url-domain.tld/bruh
-		
-		url = url.replace(/^\/(?!.{3,}:\/\/)\/?/gi, pm_url.origin + '/'); 
-		
-		/* bruh => /https://pm_url-domain.tld/bruh
-		// notice the lack of a / at the start
-		*/
-		
-		if(!url.match(/.{3,}:\/\//gi))url = pmDirectory + url
-		
-		/* url sometimes ends up as like https://localhost:7080/DASH_360.mp4 when it should NOT include the origin url inside of the
-		// base64 crap done below below so it should work when replacing it with the pm_url's origin
-		*/
-		
-		url = url.replace(new RegExp('^' + location.origin.replace(/\//g, '\\/').replace(/\./g, '\\.') , 'gi'), pm_url.origin);
-		
-		// url should be formed nicely so just like base64ify it
-		
-		if(encode && url.length <= 1024)url = location.origin + '/?pm_url=' + btoa(url)
-		else url = location.origin + '/' + url
-		
-		return url
-	},
-	state_proxify_url = url =>{
-		var url = url
-		
-		if(url == undefined)return url
-		
-		if(data.alias_mode){
-			// url starts with /, replace with alias stuff
-			if(url.match(/^\/(?!\/|https?:\/\/|alias\/)/gi))url = location.origin + '/' + data.alias_url + '/' + url
-			
-			url = url.replace(pm_url.origin, '/' + data.alias_url + '/')
-		}else if(data.pm_session == true){
-			// url starts with /, replace with /ses/
-			if(url.match(/^\/(?!\/|https?:\/\/)/gi))url = location.origin + '/ses/' + url
-			
-			url = url.replace(pm_url.origin, '/ses/')
-			
-		}else{
-			// url starts with /
-			if(url.match(/^\/(?!\/|https?:\/\/)/gi))url = location.origin + '/' + pm_url.origin + url
+		}else try{
+			ret = Reflect.get(...arguments);
+		}catch(err){
+			ret = target[prop]
 		}
 		
-		return url
-	};
+		return ret
+	},
+	set: _=> true
+});
 
-window.parent = {}
+globalThis.proxify_url = (url, encode = true)=>{ // by default, encode the url
+	if(typeof url != 'string')return url;
+	
+	if(url.match(/^(?=moz-|chrome|blob:|javascript:|data:|about:)/gi))return url; // data urls
+	
+	var pmDirectory = pm_url.href.replace(/(.*?\/)[^\/]*?$/gi, '$1'); // https://google.com/bruh/ok.html => https://google.com/bruh/
+	
+	// //ads.google.com => https://localhost/https://google.com
+	
+	url = url.replace(/(^\/{2}|^.{3,}:\/.{3,}:\/\/)/gi, 'https://');
+	
+	//   /bruh => /https://pm_url-domain.tld/bruh
+	
+	url = url.replace(/^\/(?!.{3,}:\/\/)\/?/gi, pm_url.origin + '/'); 
+	
+	/* bruh => /https://pm_url-domain.tld/bruh
+	// notice the lack of a / at the start
+	*/
+	
+	if(!url.match(/.{3,}:\/\//gi))url = pmDirectory + url
+	
+	/* url sometimes ends up as like https://localhost:7080/DASH_360.mp4 when it should NOT include the origin url inside of the
+	// base64 crap done below below so it should work when replacing it with the pm_url's origin
+	*/
+	
+	url = url.replace(new RegExp('^' + location.origin.replace(/\//g, '\\/').replace(/\./g, '\\.') , 'gi'), pm_url.origin);
+	
+	// url should be formed nicely so just like base64ify it
+	
+	if(encode && url.length <= 1024)url = location.origin + '/?pm_url=' + btoa(url)
+	else url = location.origin + '/' + url
+	
+	return url
+}
+
+globalThis.state_proxify_url = url =>{
+	var url = url
+	
+	if(url == undefined)return url
+	
+	if(data.alias_mode){
+		// url starts with /, replace with alias stuff
+		if(url.match(/^\/(?!\/|https?:\/\/|alias\/)/gi))url = location.origin + '/' + data.alias_url + '/' + url
+		
+		url = url.replace(pm_url.origin, '/' + data.alias_url + '/')
+	}else if(data.pm_session == true){
+		// url starts with /, replace with /ses/
+		if(url.match(/^\/(?!\/|https?:\/\/)/gi))url = location.origin + '/ses/' + url
+		
+		url = url.replace(pm_url.origin, '/ses/')
+		
+	}else{
+		// url starts with /
+		if(url.match(/^\/(?!\/|https?:\/\/)/gi))url = location.origin + '/' + pm_url.origin + url
+	}
+	
+	return url
+}
+
+globalThis.rewrite_page = () => {
+	var accurate_url = new URL(location.origin + '/' + pm_url.origin + location.href.substr(location.origin.length)),
+		origin_check = location.origin + '/' + pm_url.origin,
+		origin_check_alt = location.origin + '/' + pm_url.origin.replace(/^http(s?):\/(?!\/)/gi, 'http$1://');
+	
+	if(!window.page_redirecting && !location.toString().startsWith(origin_check) && !location.toString().startsWith(origin_check_alt))history.pushState({ page_id: 1, user_id: 5 }, '', accurate_url.href);
+	
+	document.querySelectorAll('*[data-href], *[data-src], *[x-link], *[src]').forEach(node => Array.from(node.attributes).forEach(attr => {
+		switch(attr.name){
+			case'src':
+				// already modified?
+				if(attr.value.startsWith(location.origin + '/' + pm_url.origin))return;
+				
+				node.setAttribute(attr.name, proxify_url(attr.value));
+				
+				break
+			case'href':
+				if(attr.value.startsWith(location.origin + '/' + pm_url.origin))return;
+				
+				node.setAttribute(attr.name, proxify_url(attr.value, false));
+				
+				break
+			case'xlink:href':
+			case'data-src': // funky google thing!
+				if(!attr.value.startsWith(location.origin + '/' + pm_url.origin))node.setAttribute(attr.name, proxify_url(attr.value));
+				
+				return node.style['background-image'] = 'url(\'' + attr.value + '\')'
+				
+				break
+			case'data-src': // stylesheet that is messed up
+				
+				var new_ss = document.createElement('link');
+				
+				node.parentNode.replaceChild(new_ss, node);
+				new_ss.setAttribute('rel', 'stylesheet');
+				new_ss.setAttribute('href', attr.value);
+				
+				break
+			case'style':
+				var old_val = attr.value,
+					new_val = old_val.replace(/((?::\s*|\s)url\()("|')?(?=[^\+])([\s\S]*?)\2(\))/gi, (match, p1, p2, p3, p4, offset, string)=>{
+						var part = p1,
+							quote = (p2 == undefined ? '' : p2),
+							toproxy_url = p3,
+							end_part = p4;
+						
+						toproxy_url = proxify_url(toproxy_url)
+						
+						return part + quote + toproxy_url + quote + end_part
+					});
+				
+				if(old_val != new_val)node.setAttribute(attr.name, new_val);
+				
+				break
+		}
+	}));
+}
 
 // anti-iframe for A specific domain
 if(window.parent.location != window.location && pm_url.host == atob('ZGlzY29yZC5jb20='))window.parent.location = window.location;
 
-[{
-	url: '/pm-cgi/js/urlrewrite.js?' + data.urlrewrite_date,
-	conditions: (!data.alias_mode && data.pm_session != true)
-},{
-	url: '/pm-cgi/js/inject.js?' + data.inject_date,
-	conditions: (data.pm_session != true)
-}].forEach(script=>{
-	// if script already loaded or conditions are not met, return
-	if(!script.conditions)return;
-	
-	pm_log('loading script ' + script.url);
-	
-	fetch(script.url, {}).then(res => res.text()).then(body => eval.call(window, body) && (()=>{
-		pm_log('script ' + script.url + ', finished loading');
-	})());
-});
-
 // request functions
-
 window.fetch = new Proxy(window.fetch, {
 	apply(target, thisArg, argArray){
 		// proxify url
@@ -224,14 +264,6 @@ Element.prototype.appendChild = new Proxy(Element.prototype.appendChild, {
 				}
 				
 				break
-			/*case 'link':
-				var href = node.getAttribute('href');
-				
-				if(href != null){
-					if(proxify_url(href) != href)node.setAttribute('href', proxify_url(href) );
-				}
-				
-				break*/
 		}
 		
 		return target.apply(thisArg, [node]);
@@ -321,57 +353,8 @@ history.replaceState = new Proxy(history.replaceState, {
 	}
 });
 
-setInterval(()=> document.querySelectorAll('*[data-href], *[data-src], *[x-link], *[src]').forEach(node => {
-	Array.from(node.attributes).forEach(attr => {
-		switch(attr.name){
-			case'src':
-				// already modified?
-				if(attr.value.startsWith(location.origin + '/' + pm_url.origin))return;
-				
-				node.setAttribute(attr.name, proxify_url(attr.value));
-				
-				break
-			case'href':
-				if(attr.value.startsWith(location.origin + '/' + pm_url.origin))return;
-				
-				node.setAttribute(attr.name, proxify_url(attr.value, false));
-				
-				break
-			case'xlink:href':
-			case'data-src': // funky google thing!
-				if(!attr.value.startsWith(location.origin + '/' + pm_url.origin))node.setAttribute(attr.name, proxify_url(attr.value));
-				
-				return node.style['background-image'] = 'url(\'' + attr.value + '\')'
-				
-				break
-			case'data-src': // stylesheet that is messed up
-				
-				var new_ss = document.createElement('link');
-				
-				node.parentNode.replaceChild(new_ss, node);
-				new_ss.setAttribute('rel', 'stylesheet');
-				new_ss.setAttribute('href', attr.value);
-				
-				break
-			case'style':
-				var old_val = attr.value,
-					new_val = old_val.replace(/((?::\s*|\s)url\()("|')?(?=[^\+])([\s\S]*?)\2(\))/gi, (match, p1, p2, p3, p4, offset, string)=>{
-						var part = p1,
-							quote = (p2 == undefined ? '' : p2),
-							toproxy_url = p3,
-							end_part = p4;
-						
-						toproxy_url = proxify_url(toproxy_url)
-						
-						return part + quote + toproxy_url + quote + end_part
-					});
-				
-				if(old_val != new_val)node.setAttribute(attr.name, new_val);
-				
-				break
-		}
-		
-		// remove from memory
-		attr = null
-	});
-}), 125);
+rewrite_page();
+setInterval(rewrite_page, 250);
+
+window.addEventListener('beforeunload', _ => window.page_redirecting = true );
+window.addEventListener('onunload', _ => window.page_redirecting = false );

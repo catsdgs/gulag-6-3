@@ -1,0 +1,117 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta charset='utf8'>
+		<title>,</title>
+		<style>
+@import url('https://fonts.googleapis.com/css2?family=Inconsolata&display=swap');
+
+body {
+	margin: 0;
+	background: #000;
+}
+
+.data_container {
+	padding: 10px;
+	font: 12px Calibri;
+	color: #fff;
+	min-height: 100px;
+}
+		</style>
+	</head>
+	<body>
+		<div class='data_container'>
+			Collecting data...
+		</div>
+		
+		<script>
+var urls = [
+		//'www.google.com',
+		'sys32.dev',
+		'titaniumnetwork.org',
+		//'www.youtube.com',
+		// 'imgur.com',
+		// 'www.roblox.com',
+		//'facebook.com',
+	],
+	times = [],
+	addproto = url => (!/^(?:f|ht)tps?\:\/\//.test(url)) ? 'https://' + url : url,
+	results = [],
+	data_container = document.querySelector('.data_container');
+
+setTimeout(()=>{
+	var promises = urls.map(url => {
+			return new Promise((resolve, reject)=>{
+				var start_time = Date.now();
+				
+				fetch('https://localhost:7080/' + addproto(url) + '?' + Date.now()).then(res => {
+					res.start_time = start_time;
+					res.after_time = Date.now();
+					resolve(res);
+				}).catch(err => {
+					console.log(err);
+					resolve({
+						start_time: start_time,
+						after_time: Date.now(),
+						status: 502,
+						arrayBuffer(){ return new ArrayBuffer(0) }
+					});
+				});
+			});
+		});
+
+	Promise.all(promises).then(data => {
+		console.log('all resolved');
+		
+		data.forEach(async (res, index) => {
+			var buffer = res.arrayBuffer ? await res.arrayBuffer() : new ArrayBuffer(0);
+			
+			results.push({
+				url: urls[index],
+				status: res.status,
+				time: res.after_time - res.start_time,
+				byteLength: buffer.byteLength,
+			});
+			
+			if(index == urls.length){ // all results added
+				var str = '',
+					avg = {}
+				
+				data_container.innerHTML = '';
+				
+				results.forEach(data => Object.keys(data).forEach(key => {
+					if(typeof avg[key] == 'number')avg[key] += data[key]
+				}));
+				
+				Object.keys(avg).forEach(key => {
+					console.log(avg[key]);
+					avg[key] = (avg[key] / results.length).toFixed(2);
+				});
+				
+				avg.url = 'Average'
+				avg.byteLength = 0;
+				
+				[].concat(avg, results.sort((entry, prev) => entry.time - prev.time)).forEach(data => {
+					str += '\n\
+					URL: ' + data.url + '\n\
+					Status: ' + data.status + '\n\
+					Time: ' + (new Date(data.time) / 1000).toFixed(2) + 's\n\
+					Bytes: ' + data.byteLength + '\n.\n.';
+					
+					var container = data_container.appendChild(document.createElement('div'));
+					
+					container.className = 'container'
+					
+					str.split('\n').forEach(line => {
+						var node = container.appendChild(document.createElement('div'));
+						node.className = 'line'
+						node.innerHTML = line
+					});
+				});
+			}
+		});
+	});
+}, 1000);
+		</script>
+	</body>
+</html>
